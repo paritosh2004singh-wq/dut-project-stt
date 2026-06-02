@@ -58,6 +58,7 @@ Machine translation is computationally intensive and requires coherent context. 
 * Python 3.10 or higher
 * Node.js v18 or higher (or Bun runtime)
 * Access keys to Groq and/or Mistral developer portals
+* Backend VAD support also requires `torch` and `torchaudio`, which makes the Python install noticeably heavier than the base transcription stack
 
 ### 5.2 Backend Deployment Steps
 1. Navigate to the backend directory:
