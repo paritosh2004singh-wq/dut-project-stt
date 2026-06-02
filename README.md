@@ -1,106 +1,202 @@
 # Real-Time Speech-to-Text and Asynchronous Translation System
 
-## 1. Executive Summary
+## Overview
 
-This repository contains the source code for an enterprise-grade, real-time Speech-to-Text (STT) transcription and automated translation system. The application employs a full-duplex, bidirectional communication pipeline over WebSockets to deliver high-performance, low-latency audio processing. The system features a sophisticated dual-delay stream architecture designed to yield immediate partial transcriptions while maintaining a high-fidelity semantic translation pipeline. Translations are powered by advanced Large Language Model (LLM) interfaces, utilizing asynchronous integrations with Groq and Mistral API providers.
+This repository contains a real-time speech-to-text application with:
 
----
+- WebSocket-based audio streaming from the browser to the backend
+- Dual-delay transcription using Mistral realtime streaming
+- Silence gating and hallucination suppression using a VAD pipeline
+- Asynchronous translation using Groq
+- A React frontend split into reusable components and custom hooks
 
-## 2. System Architecture and Design Methodologies
+The backend listens for PCM audio, filters it through voice activity detection, streams voiced audio to transcription, and triggers translation when a pause is detected or recording stops.
 
-The application is split into a decoupled, service-oriented backend and a responsive, state-driven frontend web client.
+## Current Directory Layout
 
-### 2.1 Dual-Delay Audio Processing Pipeline
-To balance the competing demands of low-latency user feedback and high-accuracy sentence structure compilation, the system operates on a dual-delay transcription architecture:
-* **The Fast Stream (240ms Window)**: Captures high-frequency partial audio chunks, producing near-instantaneous transcription segments to reflect user utterances in real time.
-* **The Slow Stream (2400ms Window)**: Pools audio segments over an extended window to isolate complete semantic units (sentences and clauses) and compile confirmed final transcriptions.
+### Backend
 
-### 2.2 Inactivity-Triggered Asynchronous Translation
-Machine translation is computationally intensive and requires coherent context. Rather than translating continuous fragments, the backend implements an activity monitor:
-* **Detection Threshold**: A 2.0-second silence window is measured programmatically through the WebSocket session.
-* **Trigger Mechanism**: Once the 2.0-second threshold is crossed (or the user manually terminates the recording session), the accumulated, confirmed transcript is queued for translation.
-* **Visual State Feedback**: During active speech, the frontend registers a suspended state ("Waiting for pause to translate..."). Upon inactivity detection, it transitions to a processing state ("Translating...") until the final payload is received.
+- `backend/app/app.py` - FastAPI application setup, CORS, router registration
+- `backend/app/routers/transcription.py` - WebSocket entrypoint at `/ws/transcribe`
+- `backend/app/routers/health.py` - Health check endpoint at `/api/health`
+- `backend/app/services/session.py` - Orchestrates transcription, VAD, sender loop, and translation
+- `backend/app/services/voice_activity.py` - Silero VAD loader plus streaming gate
+- `backend/app/services/transcript_cleanup.py` - Conservative cleanup for finalized transcripts
+- `backend/app/services/transcription_runner.py` - Mistral realtime transcription loop
+- `backend/app/services/translation.py` - Groq-backed translation helper
+- `backend/app/services/audio_broadcaster.py` - Fan-out for fast and slow audio streams
+- `backend/app/services/transcript_state.py` - Merges fast and slow transcripts into display state
+- `backend/app/models/messages.py` - WebSocket message schemas
+- `backend/app/core/config.py` - Environment-backed settings and defaults
+- `backend/tests/` - Unit and session-level tests for cleanup and VAD behavior
 
----
+### Frontend
 
-## 3. Technology Stack
+- `frontend/src/App.jsx` - Page composition root
+- `frontend/src/components/SearchInput.jsx` - Main transcript and recording UI
+- `frontend/src/components/SearchOptions.jsx` - Language selector and status strip
+- `frontend/src/components/SearchResults.jsx` - Final transcript / translation results
+- `frontend/src/components/RecordingControls.jsx` - Start/stop recording controls
+- `frontend/src/components/AudioLevelIndicator.jsx` - Audio level meter
+- `frontend/src/components/StatusIndicator.jsx` - Connection and stream status display
+- `frontend/src/hooks/useAudioRecording.js` - Browser audio capture and WebSocket session hook
+- `frontend/src/hooks/useAudioLevel.js` - Audio level tracking hook
+- `frontend/src/utils/formatting.js` - Shared formatting helpers
 
-### 3.1 Backend Service Layer
-* **Web Framework**: FastAPI (Python Asyncio)
-* **API Protocol**: WebSocket (RFC 6455) for persistent binary audio ingestion and JSON message serialization
-* **Translation Interface**: `AsyncGroq` and Mistral REST Client wrappers, facilitating non-blocking, multi-threaded language processing
-* **Asynchronous Design**: Full integration of `asyncio` routines to prevent event-loop blocking during network-bound LLM execution
+## Architecture
 
-### 3.2 Frontend Presentation Layer
-* **Application Framework**: React (Vite-backed build environment)
-* **Package Management**: Bun / npm
-* **Styling Paradigm**: Vanilla CSS implementing standard layouts, absolute variable mapping, and high-performance micro-animations
-* **Linting and Validation**: ESLint for codebase static analysis
+### Audio and transcription flow
 
----
+1. The frontend captures microphone audio in the browser.
+2. Audio is converted to 16-bit PCM and sent to `ws://localhost:8000/ws/transcribe`.
+3. The backend receives an initial config message with sample rate, delay values, target language, and optional VAD tuning values.
+4. The backend VAD gate filters silence and forwards voiced chunks to the transcription streams.
+5. Mistral provides:
+   - a fast stream for partial transcript feedback
+   - a slow stream for confirmed transcript text
+6. When the VAD gate detects a pause, the confirmed transcript is cleaned and sent to Groq for translation.
+7. The backend pushes transcript, status, and translation updates back to the browser over the same WebSocket.
 
-## 4. Key Component Definitions
+### VAD and hallucination suppression
 
-### 4.1 Backend Components (`backend/app/`)
-* **`routers/transcription.py`**: Hosts the WebSocket endpoint (`/ws/transcribe`), handling handshakes, message reception loops, connection lifecycle states, and clean disconnects.
-* **`services/session.py`**: Coordinates the lifespan of a transcription session, including binary stream accumulation, chunk delegation, and final translation handoffs.
-* **`services/translation.py`**: Interacts with Groq and Mistral external gateways to process raw transcriptions into target languages based on user-supplied parameters (formality, target locale).
-* **`models/messages.py`**: Contains Pydantic schematics defining structure and types for transcripts, server-to-client telemetry, and metadata packets.
+The backend now includes a Silero VAD pipeline with a conservative fallback path.
 
-### 4.2 Frontend Components (`frontend/src/`)
-* **`App.jsx`**: The core component that encapsulates web-audio API capture, client-side WebSocket state management, UI rendering, dimming logic for historical speech, and visual processing alerts.
+- Preferred path: Silero VAD loaded through `torch.hub.load`
+- Fallback path: lightweight energy-based gating when PyTorch is unavailable
 
----
+The gate is configured with:
 
-## 5. Deployment and Installation
+- `vad_threshold`
+- `vad_min_speech_ms`
+- `vad_min_silence_ms`
+- `vad_speech_pad_ms`
 
-### 5.1 Environment Requirements
-* Python 3.10 or higher
-* Node.js v18 or higher (or Bun runtime)
-* Access keys to Groq and/or Mistral developer portals
-* Backend VAD support also requires `torch` and `torchaudio`, which makes the Python install noticeably heavier than the base transcription stack
+Final transcript cleanup is intentionally conservative:
 
-### 5.2 Backend Deployment Steps
-1. Navigate to the backend directory:
+- obvious fillers such as `um`, `uh`, `erm`, `ah`, `er`, `hmm`, `mm` are removed
+- simple duplicate words are collapsed
+- meaningful speech is preserved
+
+## Technology Stack
+
+### Backend
+
+- FastAPI
+- WebSockets
+- Mistral realtime transcription
+- Groq translation
+- Optional Silero VAD via PyTorch
+- Pydantic models and Pydantic Settings
+
+### Frontend
+
+- React 19
+- Vite
+- React Select
+- React Icons
+- Tailwind CSS v4
+
+## Configuration
+
+Environment variables are loaded from `backend/.env`.
+
+Required backend values:
+
+```env
+GROQ_API_KEY=your_groq_api_key_value
+MISTRAL_API_KEY=your_mistral_api_key_value
+```
+
+Optional backend tuning values are defined in `backend/app/core/config.py` and can be overridden from the initial WebSocket config message:
+
+```json
+{
+  "type": "config",
+  "sample_rate": 16000,
+  "fast_delay_ms": 240,
+  "slow_delay_ms": 2400,
+  "chunk_duration_ms": 10,
+  "target_language": "English",
+  "vad_threshold": 0.5,
+  "vad_min_speech_ms": 250,
+  "vad_min_silence_ms": 100,
+  "vad_speech_pad_ms": 30
+}
+```
+
+## Installation
+
+### Backend
+
+1. Go to the backend directory:
    ```bash
    cd backend
    ```
-2. Initialize and activate a Python virtual environment:
+2. Create and activate a virtual environment:
    ```bash
    python -m venv .venv
-   source .venv/bin/activate
-   # For Windows Command Prompt:
-   # .venv\Scripts\activate
+   .venv\Scripts\activate
    ```
-3. Install the required dependencies:
+3. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
-4. Create a `.env` configuration file in the backend root directory and declare your credentials:
-   ```env
-   GROQ_API_KEY=your_groq_api_key_value
-   MISTRAL_API_KEY=your_mistral_api_key_value
-   ```
-5. Launch the application server utilizing the Uvicorn ASGI server:
+4. Start the API:
    ```bash
    uvicorn app.app:app --reload
    ```
 
-### 5.3 Frontend Deployment Steps
-1. Navigate to the frontend directory:
+Note: VAD support adds `torch` and `torchaudio`, so backend installation is heavier than the base transcription stack.
+
+### Frontend
+
+1. Go to the frontend directory:
    ```bash
    cd frontend
    ```
-2. Install the necessary Node packages:
+2. Install dependencies:
    ```bash
    bun install
-   # Or alternatively:
-   # npm install
+   # or
+   npm install
    ```
-3. Compile and launch the local web server:
+3. Start the dev server:
    ```bash
    bun run dev
-   # Or alternatively:
-   # npm run dev
+   # or
+   npm run dev
    ```
-4. Access the web client via the address output by the build tool (typically `http://localhost:5173`).
+
+The app is typically available at `http://localhost:5173`.
+
+## Validation
+
+Recommended checks:
+
+- Backend tests:
+  ```bash
+  backend\\.venv\\Scripts\\python.exe -m unittest discover -s backend/tests -t backend
+  ```
+- Backend syntax check:
+  ```bash
+  python -m compileall backend/app backend/tests
+  ```
+- Frontend build:
+  ```bash
+  npm run build
+  ```
+- Frontend lint:
+  ```bash
+  npm run lint
+  ```
+
+## API Endpoints
+
+- `GET /api/health` - basic service health check
+- `WS /ws/transcribe` - realtime transcription and translation stream
+
+## Notes
+
+- The backend keeps the websocket message schema stable for the frontend.
+- The translation flow remains asynchronous and only runs when confirmed speech has been finalized or a pause is detected.
+- The frontend is now organized into small components and hooks, which makes the main `App.jsx` a lightweight composition root.

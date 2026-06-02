@@ -1,9 +1,9 @@
+// components/SearchResults.jsx
 import { FaSearch } from "react-icons/fa";
 
-export function SearchResultsPanel({ confirmedText, isRecording, language, translatedText }) {
-  if (isRecording || (!confirmedText && !translatedText)) {
-    return null;
-  }
+export const SearchResults = ({ confirmedText, translatedText, language, isRecording }) => {
+  if (!confirmedText && !translatedText) return null;
+  if (isRecording) return null;
 
   return (
     <div className="mt-8 space-y-4">
@@ -13,7 +13,7 @@ export function SearchResultsPanel({ confirmedText, isRecording, language, trans
           <p className="text-gray-800 text-lg">{confirmedText}</p>
         </div>
       )}
-
+      
       {translatedText && (
         <div className="bg-linear-to-r from-purple-50 to-blue-50 rounded-2xl shadow-sm border border-purple-100 p-6">
           <h3 className="text-sm font-medium text-purple-400 mb-2">
@@ -27,14 +27,16 @@ export function SearchResultsPanel({ confirmedText, isRecording, language, trans
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <h3 className="text-sm font-medium text-gray-400 mb-3">SEARCH RESULT</h3>
           <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
-            <FaSearch className="text-gray-300 mt-1 flex-shrink-0" />
+            <FaSearch className="text-gray-300 mt-1 shrink-0" />
             <div>
               <p className="text-gray-800 font-medium">{confirmedText}</p>
-              <p className="text-sm text-gray-400 mt-1">Search result description would appear here...</p>
+              <p className="text-sm text-gray-400 mt-1">
+                Search result description would appear here...
+              </p>
             </div>
           </div>
         </div>
       )}
     </div>
   );
-}
+};

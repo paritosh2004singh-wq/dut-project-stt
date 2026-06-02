@@ -3,7 +3,8 @@ import json
 import logging
  
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
- 
+
+from app.core.config import settings
 from app.models.messages import ConfigMessage
 from app.services.session import TranscriptionSession
  
@@ -21,7 +22,19 @@ async def transcribe_ws(websocket: WebSocket) -> None:
  
     try:
         # ── Step 1: receive config ────────────────────────────────────────────
-        raw_config = await asyncio.wait_for(websocket.receive_text(), timeout=10.0)
+        config_message = await asyncio.wait_for(websocket.receive(), timeout=10.0)
+        logger.info("Received config_message: %s", config_message)
+        
+        # Extract the text payload from the WebSocket message
+        raw_config = None
+        if config_message.get("type") == "websocket.receive":
+            raw_config = config_message.get("text")
+        
+        logger.info("Extracted raw_config: %s", raw_config)
+        
+        if raw_config is None:
+            raise ValueError("Expected initial text config message")
+        
         config = ConfigMessage(**json.loads(raw_config))
         logger.info(
             "Session config: sample_rate=%s fast=%sms slow=%sms",
@@ -37,6 +50,10 @@ async def transcribe_ws(websocket: WebSocket) -> None:
             slow_delay_ms=config.slow_delay_ms,
             sample_rate=config.sample_rate,
             target_language=config.target_language,
+            vad_threshold=config.vad_threshold if config.vad_threshold is not None else settings.vad_threshold,
+            vad_min_speech_ms=config.vad_min_speech_ms if config.vad_min_speech_ms is not None else settings.vad_min_speech_ms,
+            vad_min_silence_ms=config.vad_min_silence_ms if config.vad_min_silence_ms is not None else settings.vad_min_silence_ms,
+            vad_speech_pad_ms=config.vad_speech_pad_ms if config.vad_speech_pad_ms is not None else settings.vad_speech_pad_ms,
         )
         await session.start()
  

@@ -20,7 +20,11 @@ class Settings(BaseSettings):
     # Audio defaults
     sample_rate: int = 16000  # 8000 | 16000 | 22050 | 44100 | 48000
     chunk_duration_ms: int = 10
- 
+    vad_threshold: float = 0.5
+    vad_min_speech_ms: int = 250
+    vad_min_silence_ms: int = 100
+    vad_speech_pad_ms: int = 30
+
     # Server
     app_host: str = "0.0.0.0"
     app_port: int = 8000

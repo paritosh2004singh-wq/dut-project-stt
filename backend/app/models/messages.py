@@ -33,6 +33,10 @@ class ConfigMessage(BaseModel):
     slow_delay_ms: int = Field(default=2400, ge=0)
     chunk_duration_ms: int = Field(default=10, ge=1)
     target_language: str = "English"
+    vad_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+    vad_min_speech_ms: int | None = Field(default=None, ge=0)
+    vad_min_silence_ms: int | None = Field(default=None, ge=0)
+    vad_speech_pad_ms: int | None = Field(default=None, ge=0)
  
  
 # ──────────────────────────────────────────────────────────────────────────────
