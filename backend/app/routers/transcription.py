@@ -46,6 +46,7 @@ async def transcribe_ws(websocket: WebSocket) -> None:
         # ── Step 2: create and start the session ──────────────────────────────
         session = TranscriptionSession(
             websocket,
+            session_id=config.session_id,
             fast_delay_ms=config.fast_delay_ms,
             slow_delay_ms=config.slow_delay_ms,
             sample_rate=config.sample_rate,

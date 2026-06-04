@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
  
 from app.core.config import settings
 from app.routers import health_router, transcription_router
+from app.routers.history import router as history_router
+from app.db.database import init_db
  
 logging.basicConfig(
     level=logging.INFO,
@@ -21,6 +23,10 @@ app = FastAPI(
     version="1.0.0",
 )
  
+@app.on_event("startup")
+async def startup_event():
+    await init_db()
+ 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
@@ -33,10 +39,10 @@ app.add_middleware(
 # ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(health_router)
 app.include_router(transcription_router)
+app.include_router(history_router)
  
  
 @app.get("/", include_in_schema=False)
 async def root() -> dict:
     return {"message": "Dual Delay Transcription API is running"}
-
 

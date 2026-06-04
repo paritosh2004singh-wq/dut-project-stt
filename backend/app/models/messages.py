@@ -28,6 +28,7 @@ class StatusKind(str, Enum):
 class ConfigMessage(BaseModel):
     """Client sends this JSON message to configure the session."""
     type: Literal["config"] = "config"
+    session_id: str | None = None
     sample_rate: int = Field(default=16000, ge=8000, le=48000)
     fast_delay_ms: int = Field(default=240, ge=0)
     slow_delay_ms: int = Field(default=2400, ge=0)

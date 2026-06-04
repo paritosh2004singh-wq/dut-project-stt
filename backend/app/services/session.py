@@ -22,6 +22,9 @@ from app.services.transcript_state import TranscriptState
 from app.services.transcription_runner import run_stream
 from app.services.translation import translate_transcription_advanced
 from app.services.voice_activity import VADConfig, VoiceActivityGate, build_voice_activity_gate
+from app.db.database import async_session
+from app.db import crud
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +34,7 @@ class TranscriptionSession:
         self,
         websocket: WebSocket,
         *,
+        session_id: str | None = None,
         fast_delay_ms: int,
         slow_delay_ms: int,
         sample_rate: int,
@@ -46,6 +50,7 @@ class TranscriptionSession:
         translator: Callable[..., Awaitable[dict[str, Any]]] = translate_transcription_advanced,
     ) -> None:
         self._ws = websocket
+        self._session_id = session_id
         self._fast_delay_ms = fast_delay_ms
         self._slow_delay_ms = slow_delay_ms
         self._sample_rate = sample_rate
@@ -84,6 +89,26 @@ class TranscriptionSession:
 
     async def start(self) -> None:
         """Launch the WebSocket sender loop and translation loop. Wait for audio to start streams."""
+        self._start_text_len = 0
+        if self._session_id:
+            try:
+                sid = uuid.UUID(self._session_id)
+                async with async_session() as db:
+                    sess = await crud.get_session(db, sid)
+                    if sess:
+                        historical_text = " ".join([seg.text for seg in sess.segments if seg.text])
+                        historical_translation = " ".join([seg.translation for seg in sess.segments if seg.translation])
+                        if historical_text:
+                            self._state.append_slow(historical_text)
+                            self._last_translated_source = historical_text
+                            self._start_text_len = len(historical_text)
+                        if historical_translation:
+                            self._translated_text = historical_translation
+                    else:
+                        await crud.create_session(db, sid, self._target_language)
+            except Exception as e:
+                logger.error("DB error on start: %s", e)
+
         self._client = self._client_factory(
             api_key=settings.mistral_api_key,
             server_url=settings.mistral_base_url,
@@ -208,6 +233,37 @@ class TranscriptionSession:
         if self._sender_task and not self._sender_task.done():
             self._sender_task.cancel()
             await asyncio.gather(self._sender_task, return_exceptions=True)
+
+        # ── Save segment to DB ──
+        if self._session_id:
+            try:
+                sid = uuid.UUID(self._session_id)
+                final_text, _ = self._state.compute_display()
+                final_text = clean_final_transcript(final_text)
+                
+                new_text = final_text[self._start_text_len:].strip()
+                if new_text:
+                    from app.services.embeddings import generate_embedding
+                    # We will embed the translated text if available, otherwise the source text
+                    text_to_embed = self._translated_text if (self._target_language != "English" and self._translated_text) else new_text
+                    
+                    # Offload embedding to not block
+                    embedding = await generate_embedding(text_to_embed)
+                    
+                    async with async_session() as db:
+                        # Extract the new translation roughly if possible, otherwise store full
+                        # We'll just store the full translated_text for the segment for simplicity
+                        # or None if English.
+                        await crud.create_segment(
+                            db, 
+                            sid, 
+                            text=new_text, 
+                            translation=self._translated_text if self._target_language != "English" else None,
+                            embedding=embedding
+                        )
+                        await crud.update_session_status(db, sid, "completed")
+            except Exception as e:
+                logger.error("DB error on close: %s", e)
 
     async def _translation_loop(self) -> None:
         """Translate the current finalized text whenever VAD signals a pause."""
