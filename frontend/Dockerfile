@@ -1,4 +1,4 @@
-FROM oven/bun:1 as builder
+FROM oven/bun:1 AS builder
 
 WORKDIR /app
 
@@ -8,7 +8,12 @@ RUN bun install
 COPY . .
 RUN bun run build
 
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+FROM oven/bun:1
+
+WORKDIR /app
+
+COPY --from=builder /app/dist ./dist
+
+EXPOSE 3000
+
+CMD ["bun", "x", "serve", "-s", "dist", "-l", "5173"]

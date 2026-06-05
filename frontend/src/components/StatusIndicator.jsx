@@ -1,6 +1,3 @@
-// components/StatusIndicator.jsx
-import { getStatusColor } from "../utils/formatting";
-
 export const StatusIndicator = ({ status, label }) => {
   const statusColors = {
     connected: "bg-green-400",

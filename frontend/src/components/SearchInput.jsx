@@ -1,12 +1,11 @@
-// components/SearchInput.jsx
+import { memo } from "react";
 import { FaMicrophone, FaSearch, FaTimes, FaLanguage } from "react-icons/fa";
 import { RecordingControls } from "./RecordingControls";
 import { AudioLevelIndicator } from "./AudioLevelIndicator";
-import { StatusIndicator } from "./StatusIndicator";
 import { formatDuration } from "../utils/formatting";
 import { FaCircle } from "react-icons/fa";
 
-export const SearchInput = ({
+export const SearchInput = memo(({
   isRecording,
   confirmedText,
   partialText,
@@ -16,100 +15,110 @@ export const SearchInput = ({
   connectionStatus,
   audioLevel,
   duration,
-  fastStatus,
-  slowStatus,
   onStartRecording,
   onStopRecording,
-  onClear
+  onClear,
+  searchQuery,
+  onSearchQueryChange,
+  onSearchSubmit
 }) => {
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && searchQuery?.trim()) {
+      onSearchSubmit(searchQuery);
+    }
+  };
+
+  const hasTranscription = confirmedText || partialText || translatedText;
+
   return (
-    <div className={`bg-white rounded-2xl shadow-lg border transition-all duration-300 ${
-      isRecording ? 'border-red-300 shadow-red-100' : 'border-gray-200 hover:shadow-xl'
+    <div className={`bg-white rounded-[2.5rem] p-6 lg:p-8 transition-all duration-500 ease-out ${
+      isRecording 
+        ? 'shadow-[0_8px_30px_rgba(59,130,246,0.12)] border border-blue-100 ring-4 ring-blue-50/50' 
+        : 'shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-slate-100 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)]'
     }`}>
-      <div className="p-4">
-        <div className="flex items-start gap-3 mb-3">
-          <div className="text-gray-400 mt-1">
+      <div className="flex flex-col min-h-[120px]">
+        
+        {/* Main Text Area */}
+        <div className="flex items-start gap-4 mb-6 flex-1">
+          <div className={`mt-2 p-3 rounded-full transition-colors ${isRecording ? 'bg-blue-50 text-blue-500' : 'bg-[#f5f5f7] text-slate-400'}`}>
             {isRecording ? (
-              <FaMicrophone className="text-red-500 animate-pulse text-lg" />
+              <FaMicrophone className="animate-pulse text-xl" />
             ) : (
-              <FaSearch className="text-lg" />
+              <FaSearch className="text-xl" />
             )}
           </div>
           
-          <div className="flex-1 min-h-6">
-            {!isRecording && !confirmedText && !partialText ? (
-              <span className="text-gray-400 text-lg">
-                {language.value === "English" 
-                  ? "Search or type a query..." 
-                  : `Speak in English, translate to ${language.value}...`}
-              </span>
+          <div className="flex-1 mt-1">
+            {!isRecording && !hasTranscription ? (
+              <input
+                type="text"
+                value={searchQuery || ""}
+                onChange={(e) => onSearchQueryChange && onSearchQueryChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={language.value === "English" 
+                  ? "Type to search or start speaking..." 
+                  : `Type to search or speak to translate to ${language.value}...`}
+                className="w-full bg-transparent text-slate-600 text-2xl font-light tracking-tight mt-1 outline-none placeholder:text-slate-300 focus:text-[#1d1d1f]"
+              />
             ) : (
-              <div className="text-lg leading-relaxed">
-                <span className="text-gray-800 font-medium">{confirmedText}</span>
-                <span className="text-blue-500 italic ml-1">{partialText}</span>
+              <div className="text-2xl leading-relaxed tracking-tight">
+                {language.value === "English" ? (
+                  <>
+                    <span className="text-[#1d1d1f] font-medium">{confirmedText}</span>
+                    <span className="text-slate-400 font-light ml-2">{partialText}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[#1d1d1f] font-medium">
+                      {translatedText ? translatedText : (isTranslating ? "Translating..." : "Listening...")}
+                    </span>
+                  </>
+                )}
               </div>
             )}
           </div>
 
-          {(confirmedText || translatedText) && !isRecording && (
+          {(hasTranscription || searchQuery) && !isRecording && (
             <button 
-              onClick={onClear}
-              className="text-gray-400 hover:text-gray-600 transition-colors mt-1"
+              onClick={() => {
+                if (onClear) onClear();
+                if (onSearchQueryChange) onSearchQueryChange("");
+              }}
+              className="mt-2 p-2 bg-[#f5f5f7] hover:bg-[#e8e8ed] text-slate-500 rounded-full transition-colors"
             >
               <FaTimes />
             </button>
           )}
         </div>
 
-        {language.value !== "English" && (translatedText || isTranslating || confirmedText) && (
-          <div className="flex items-start gap-3 pl-8 border-l-2 border-purple-200 ml-3">
-            <FaLanguage className="text-purple-400 mt-1 text-sm" />
-            <div className="flex-1">
-              {translatedText && (
-                <p className={`text-purple-700 font-medium text-base ${isTranslating ? 'opacity-50' : ''}`}>
-                  {translatedText}
-                </p>
-              )}
-              {isTranslating && (
-                <p className="text-gray-400 italic text-sm animate-pulse mt-1">
-                  Translating...
-                </p>
-              )}
-              {!isTranslating && !translatedText && confirmedText && (
-                <p className="text-gray-400 italic text-sm mt-1">
-                  {connectionStatus === "disconnected" ? "Translation unavailable." : "Waiting for pause to translate..."}
-                </p>
-              )}
-              <p className="text-xs text-gray-400 mt-1">
-                Translated to {language.value}
-              </p>
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-          <div className="flex items-center gap-2">
+        {/* Footer Area */}
+        <div className="flex items-center justify-between mt-auto pt-6 border-t border-slate-100">
+          <div className="flex items-center gap-3">
             {isRecording && (
               <>
-                <FaCircle className="text-red-500 text-[8px] animate-pulse" />
-                <span className="text-sm text-gray-500 font-mono">
-                  {formatDuration(duration)}
-                </span>
+                <div className="flex items-center gap-2 px-3 py-1 bg-red-50 text-red-500 rounded-full">
+                  <FaCircle className="text-[8px] animate-pulse" />
+                  <span className="text-sm font-semibold tracking-wider font-mono">
+                    {formatDuration(duration)}
+                  </span>
+                </div>
               </>
             )}
           </div>
 
-          <div className="flex items-center gap-3">
-            <RecordingControls 
-              isRecording={isRecording}
-              onStart={onStartRecording}
-              onStop={onStopRecording}
-            />
-          </div>
+          <RecordingControls 
+            isRecording={isRecording}
+            onStart={onStartRecording}
+            onStop={onStopRecording}
+          />
         </div>
       </div>
 
-      <AudioLevelIndicator audioLevel={audioLevel} isRecording={isRecording} />
+      <div className="mt-6">
+        <AudioLevelIndicator audioLevel={audioLevel} isRecording={isRecording} />
+      </div>
     </div>
   );
-};
+});
+
+SearchInput.displayName = "SearchInput";

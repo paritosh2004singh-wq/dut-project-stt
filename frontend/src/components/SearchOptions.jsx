@@ -1,4 +1,4 @@
-// components/SearchOptions.jsx
+import { memo } from "react";
 import Select from "react-select";
 import { StatusIndicator } from "./StatusIndicator";
 import { getStatusColor } from "../utils/formatting";
@@ -13,61 +13,53 @@ const languageOptions = [
 const selectStyles = {
   control: (base, state) => ({
     ...base,
-    background: 'transparent',
-    border: '1px solid transparent',
-    borderRadius: '0.75rem',
-    minHeight: '36px',
+    background: '#f5f5f7',
+    border: 'none',
+    borderRadius: '1rem',
+    minHeight: '40px',
     boxShadow: 'none',
     cursor: 'pointer',
     fontSize: '0.875rem',
+    padding: '0 8px',
+    transition: 'all 0.2s',
     '&:hover': {
-      borderColor: '#e5e7eb',
-      background: '#f9fafb'
+      background: '#e8e8ed'
     },
-    ...(state.isFocused && {
-      borderColor: '#3b82f6',
-      background: '#f9fafb'
-    })
   }),
   singleValue: (base) => ({ 
     ...base, 
-    color: '#374151',
-    fontWeight: '500'
+    color: '#1d1d1f',
+    fontWeight: '600'
   }),
   menu: (base) => ({
     ...base,
-    background: 'white',
+    background: 'white/80',
+    backdropFilter: 'blur(16px)',
     border: '1px solid #e5e7eb',
-    borderRadius: '0.75rem',
+    borderRadius: '1rem',
     overflow: 'hidden',
-    boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-    marginTop: '4px'
+    boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
+    marginTop: '8px'
   }),
   option: (base, state) => ({
     ...base,
-    background: state.isFocused ? '#f3f4f6' : 'transparent',
-    color: '#374151',
+    background: state.isFocused ? '#f5f5f7' : 'transparent',
+    color: '#1d1d1f',
     cursor: 'pointer',
     fontSize: '0.875rem',
-    padding: '8px 12px',
-    '&:hover': {
-      background: '#f3f4f6'
-    }
+    fontWeight: '500',
+    padding: '10px 16px',
+    transition: 'background 0.2s',
   }),
   dropdownIndicator: (base) => ({ 
     ...base, 
-    color: '#9ca3af',
+    color: '#86868b',
     padding: '4px'
   }),
   indicatorSeparator: () => ({ display: 'none' }),
-  placeholder: (base) => ({
-    ...base,
-    color: '#9ca3af',
-    fontSize: '0.875rem'
-  })
 };
 
-export const SearchOptions = ({
+export const SearchOptions = memo(({
   language,
   onLanguageChange,
   isRecording,
@@ -76,9 +68,9 @@ export const SearchOptions = ({
   connectionStatus
 }) => {
   return (
-    <div className="flex items-center justify-between mt-4 px-2">
+    <div className="flex items-center gap-6 bg-white rounded-full px-6 py-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100">
       <div className="flex items-center gap-4">
-        <div className="relative z-50 min-w-35">
+        <div className="relative z-50 min-w-[140px]">
           <Select
             options={languageOptions}
             value={language}
@@ -86,23 +78,26 @@ export const SearchOptions = ({
             isDisabled={isRecording}
             placeholder="Language"
             styles={selectStyles}
+            isSearchable={false}
           />
         </div>
 
         {isRecording && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4 pl-4 border-l border-slate-100">
             <StatusIndicator status={fastStatus} label="Fast" />
             <StatusIndicator status={slowStatus} label="Slow" />
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className={`w-2 h-2 rounded-full ${getStatusColor(connectionStatus)} ${
+      <div className="flex items-center gap-2 pl-4 border-l border-slate-100">
+        <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(connectionStatus)} ${
           connectionStatus === "connecting" ? "animate-pulse" : ""
         }`} />
-        <span className="text-xs text-gray-400 capitalize">{connectionStatus}</span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{connectionStatus}</span>
       </div>
     </div>
   );
-};
+});
+
+SearchOptions.displayName = "SearchOptions";

@@ -1,5 +1,18 @@
-// hooks/useAudioRecording.js
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL?.trim() || "ws://localhost:8080";
+
+const getWebSocketUrl = () => {
+  let normalizedBaseUrl = wsBaseUrl;
+
+  if (normalizedBaseUrl.startsWith("http://")) {
+    normalizedBaseUrl = `ws://${normalizedBaseUrl.slice(7)}`;
+  } else if (normalizedBaseUrl.startsWith("https://")) {
+    normalizedBaseUrl = `wss://${normalizedBaseUrl.slice(8)}`;
+  }
+
+  return new URL("/ws/transcribe", normalizedBaseUrl).toString();
+};
 
 export const useAudioRecording = (language) => {
   const [isRecording, setIsRecording] = useState(false);
@@ -23,20 +36,20 @@ export const useAudioRecording = (language) => {
 
   const floatTo16BitPCM = useCallback((float32Array) => {
     const int16Array = new Int16Array(float32Array.length);
-    for (let i = 0; i < float32Array.length; i++) {
-      const s = Math.max(-1, Math.min(1, float32Array[i]));
-      int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    for (let index = 0; index < float32Array.length; index += 1) {
+      const sample = Math.max(-1, Math.min(1, float32Array[index]));
+      int16Array[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
     }
     return int16Array;
   }, []);
 
-  const updateAudioLevel = useCallback(() => {
+  const updateAudioLevel = useCallback(function refreshAudioLevel() {
     if (analyserRef.current) {
       const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
       analyserRef.current.getByteFrequencyData(dataArray);
-      const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+      const average = dataArray.reduce((total, value) => total + value) / dataArray.length;
       setAudioLevel(average);
-      animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
+      animationFrameRef.current = requestAnimationFrame(refreshAudioLevel);
     }
   }, []);
 
@@ -45,17 +58,17 @@ export const useAudioRecording = (language) => {
       processorRef.current.disconnect();
       processorRef.current = null;
     }
-    
+
     if (audioContextRef.current) {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
-    
+
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
-    
+
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
@@ -63,51 +76,44 @@ export const useAudioRecording = (language) => {
   }, []);
 
   const setupWebSocket = useCallback((onConfigSent) => {
-    const socket = new WebSocket("ws://localhost:8000/ws/transcribe");
+    const socket = new WebSocket(getWebSocketUrl());
     socketRef.current = socket;
 
     socket.onopen = () => {
-      console.log("WebSocket connection opened.");
       setConnectionStatus("connected");
-      
+
       const config = {
         type: "config",
         sample_rate: 16000,
         fast_delay_ms: 240,
         slow_delay_ms: 2400,
         chunk_duration_ms: 10,
-        target_language: language.value
+        target_language: language.value,
       };
+
       socket.send(JSON.stringify(config));
-      console.log("Config sent:", config);
-      
-      // Call the callback after config is sent
-      if (onConfigSent) {
-        onConfigSent();
-      }
+      onConfigSent?.();
     };
 
     socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        console.log("Received message:", message);
-        
+
         if (message.type === "transcript") {
           setConfirmedText(message.confirmed_text || "");
           setPartialText(message.partial_text || "");
           setIsTranslating(message.is_translating || false);
+
           if (message.translated_text !== undefined) {
             setTranslatedText(message.translated_text || "");
           }
         } else if (message.type === "status") {
-          console.log(`Status [${message.stream}]: ${message.status}`);
           if (message.stream === "fast") {
             setFastStatus(message.status);
           } else if (message.stream === "slow") {
             setSlowStatus(message.status);
           }
         } else if (message.type === "error") {
-          console.error("Server error:", message.message);
           setConnectionStatus("error");
         }
       } catch (error) {
@@ -116,12 +122,10 @@ export const useAudioRecording = (language) => {
     };
 
     socket.onclose = () => {
-      console.log("WebSocket connection closed.");
       setConnectionStatus("disconnected");
     };
 
-    socket.onerror = (error) => {
-      console.error("WebSocket error:", error);
+    socket.onerror = () => {
       setConnectionStatus("error");
     };
 
@@ -129,40 +133,40 @@ export const useAudioRecording = (language) => {
   }, [language]);
 
   const setupAudioProcessing = useCallback(async (socket) => {
-    const stream = await navigator.mediaDevices.getUserMedia({ 
+    const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         channelCount: 1,
         sampleRate: 16000,
         echoCancellation: true,
-        noiseSuppression: true
-      } 
+        noiseSuppression: true,
+      },
     });
-    
+
     streamRef.current = stream;
-    
+
     const audioContext = new (window.AudioContext || window.webkitAudioContext)({
-      sampleRate: 16000
+      sampleRate: 16000,
     });
     audioContextRef.current = audioContext;
-    
+
     const analyser = audioContext.createAnalyser();
     analyser.fftSize = 256;
     analyserRef.current = analyser;
-    
+
     const source = audioContext.createMediaStreamSource(stream);
     source.connect(analyser);
-    
+
     const processor = audioContext.createScriptProcessor(4096, 1, 1);
     processorRef.current = processor;
-    
-    processor.onaudioprocess = (e) => {
+
+    processor.onaudioprocess = (event) => {
       if (socket.readyState === WebSocket.OPEN) {
-        const float32Data = e.inputBuffer.getChannelData(0);
+        const float32Data = event.inputBuffer.getChannelData(0);
         const int16Data = floatTo16BitPCM(float32Data);
         socket.send(int16Data.buffer);
       }
     };
-    
+
     source.connect(processor);
     processor.connect(audioContext.destination);
   }, [floatTo16BitPCM]);
@@ -175,7 +179,6 @@ export const useAudioRecording = (language) => {
       setIsTranslating(false);
 
       const socket = setupWebSocket(async () => {
-        // Only start audio processing after config is sent
         try {
           await setupAudioProcessing(socket);
           setIsRecording(true);
@@ -190,13 +193,13 @@ export const useAudioRecording = (language) => {
       console.error("Error starting recording:", error);
       setConnectionStatus("error");
     }
-  }, [setupWebSocket, setupAudioProcessing, updateAudioLevel]);
+  }, [setupAudioProcessing, setupWebSocket, updateAudioLevel]);
 
   const stopRecording = useCallback(() => {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send("stop");
     }
-    
+
     cleanup();
     setIsRecording(false);
     setAudioLevel(0);
@@ -205,18 +208,18 @@ export const useAudioRecording = (language) => {
     setSlowStatus("connecting");
   }, [cleanup]);
 
-  // Duration timer
   useEffect(() => {
-    if (!isRecording) return;
-    
+    if (!isRecording) {
+      return undefined;
+    }
+
     const interval = setInterval(() => {
       setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000));
     }, 1000);
-    
+
     return () => clearInterval(interval);
   }, [isRecording]);
 
-  // Cleanup on unmount
   useEffect(() => cleanup, [cleanup]);
 
   return {
@@ -230,10 +233,11 @@ export const useAudioRecording = (language) => {
     slowStatus,
     translatedText,
     isTranslating,
+    autoSearchCandidate: (translatedText || confirmedText).trim(),
     startRecording,
     stopRecording,
     setConfirmedText,
     setPartialText,
-    setTranslatedText
+    setTranslatedText,
   };
 };

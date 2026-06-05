@@ -1,42 +1,30 @@
-// components/SearchResults.jsx
-import { FaSearch } from "react-icons/fa";
+import { memo } from "react";
 
-export const SearchResults = ({ confirmedText, translatedText, language, isRecording }) => {
+export const SearchResults = memo(({ confirmedText, translatedText, language, isRecording }) => {
   if (!confirmedText && !translatedText) return null;
   if (isRecording) return null;
 
   return (
-    <div className="mt-8 space-y-4">
-      {confirmedText && language.value !== "English" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-sm font-medium text-gray-400 mb-2">ORIGINAL (ENGLISH)</h3>
-          <p className="text-gray-800 text-lg">{confirmedText}</p>
+    <div className="mt-8 space-y-4 animate-in fade-in duration-300">
+      {language.value === "English" && confirmedText && (
+        <div className="bg-white rounded-3xl shadow-[0_2px_15px_rgba(0,0,0,0.04)] border border-slate-100 p-8">
+          <h3 className="text-xs font-semibold tracking-wider text-slate-400 mb-3 uppercase">
+            Transcript
+          </h3>
+          <p className="text-[#1d1d1f] text-xl leading-relaxed">{confirmedText}</p>
         </div>
       )}
       
-      {translatedText && (
-        <div className="bg-linear-to-r from-purple-50 to-blue-50 rounded-2xl shadow-sm border border-purple-100 p-6">
-          <h3 className="text-sm font-medium text-purple-400 mb-2">
-            TRANSLATED TO {language.value.toUpperCase()}
+      {language.value !== "English" && translatedText && (
+        <div className="bg-[#f0f4ff] rounded-3xl border border-blue-100 p-8">
+          <h3 className="text-xs font-semibold tracking-wider text-blue-500 mb-3 uppercase">
+            Translated to {language.value}
           </h3>
-          <p className="text-purple-900 text-lg font-medium">{translatedText}</p>
-        </div>
-      )}
-
-      {confirmedText && language.value === "English" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-sm font-medium text-gray-400 mb-3">SEARCH RESULT</h3>
-          <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
-            <FaSearch className="text-gray-300 mt-1 shrink-0" />
-            <div>
-              <p className="text-gray-800 font-medium">{confirmedText}</p>
-              <p className="text-sm text-gray-400 mt-1">
-                Search result description would appear here...
-              </p>
-            </div>
-          </div>
+          <p className="text-blue-900 text-xl font-medium leading-relaxed">{translatedText}</p>
         </div>
       )}
     </div>
   );
-};
+});
+
+SearchResults.displayName = "SearchResults";
