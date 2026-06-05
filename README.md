@@ -8,9 +8,10 @@ This repository contains a real-time speech-to-text application with:
 - Dual-delay transcription using Mistral realtime streaming
 - Silence gating and hallucination suppression using a VAD pipeline
 - Asynchronous translation using Groq
-- A React frontend split into reusable components and custom hooks
+- Semantic search of past session archives
+- A sleek, Apple-like unified dashboard frontend built with React
 
-The backend listens for PCM audio, filters it through voice activity detection, streams voiced audio to transcription, and triggers translation when a pause is detected or recording stops.
+The backend listens for PCM audio, filters it through voice activity detection, streams voiced audio to transcription, and triggers translation when a pause is detected or recording stops. Transcripts are stored and can be retrieved via semantic search.
 
 ## Current Directory Layout
 
@@ -32,14 +33,19 @@ The backend listens for PCM audio, filters it through voice activity detection, 
 
 ### Frontend
 
-- `frontend/src/App.jsx` - Page composition root
-- `frontend/src/components/SearchInput.jsx` - Main transcript and recording UI
+- `frontend/src/App.jsx` - Page composition root (Unified Dashboard layout)
+- `frontend/src/components/SearchInput.jsx` - Main transcript, recording, and typing search UI
+- `frontend/src/components/SemanticSearchPanel.jsx` - Sidebar search input for querying session archive
+- `frontend/src/components/RecentSessionsPanel.jsx` - Sidebar history of recent sessions
+- `frontend/src/components/SearchResultList.jsx` - Sidebar display for semantic matches
+- `frontend/src/components/SessionDetailPanel.jsx` - Main area display for inspecting a complete past session
 - `frontend/src/components/SearchOptions.jsx` - Language selector and status strip
 - `frontend/src/components/SearchResults.jsx` - Final transcript / translation results
 - `frontend/src/components/RecordingControls.jsx` - Start/stop recording controls
 - `frontend/src/components/AudioLevelIndicator.jsx` - Audio level meter
 - `frontend/src/components/StatusIndicator.jsx` - Connection and stream status display
 - `frontend/src/hooks/useAudioRecording.js` - Browser audio capture and WebSocket session hook
+- `frontend/src/hooks/useSemanticSearch.js` - Hook for managing semantic search and session retrieval state
 - `frontend/src/hooks/useAudioLevel.js` - Audio level tracking hook
 - `frontend/src/utils/formatting.js` - Shared formatting helpers
 
@@ -56,6 +62,14 @@ The backend listens for PCM audio, filters it through voice activity detection, 
    - a slow stream for confirmed transcript text
 6. When the VAD gate detects a pause, the confirmed transcript is cleaned and sent to Groq for translation.
 7. The backend pushes transcript, status, and translation updates back to the browser over the same WebSocket.
+
+### Unified Dashboard Interface
+
+The React frontend features a clean, Apple-like dashboard:
+
+- **Left Sidebar:** Hosts the semantic search panel and recent session history.
+- **Main Area:** Centrally displays the active voice recording and live translation. It intelligently switches to a detailed view of past sessions when selected from the archive.
+- **Search capabilities:** Users can search past transcriptions and translations semantically either via the sidebar or by directly typing into the main recording area.
 
 ### VAD and hallucination suppression
 
