@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useRef, useEffect } from "react";
 import { FaMicrophone, FaSearch, FaTimes, FaLanguage } from "react-icons/fa";
 import { RecordingControls } from "./RecordingControls";
 import { AudioLevelIndicator } from "./AudioLevelIndicator";
@@ -21,9 +21,24 @@ export const SearchInput = memo(({
   onClear
 }) => {
   const hasTranscription = confirmedText || partialText || translatedText;
+  const scrollContainerRef = useRef(null);
 
   // Combine active English segment and partial text for transient feedback
   const parenthesizedText = [activeEnglishText?.trim(), partialText?.trim()].filter(Boolean).join(" ");
+
+  // Auto-scroll to bottom of the transcription box when text updates
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const isCloseToBottom = container.scrollHeight - container.clientHeight - container.scrollTop < 100;
+      if (isRecording || isCloseToBottom) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: "smooth",
+        });
+      }
+    }
+  }, [confirmedText, partialText, translatedText, isRecording]);
 
   return (
     <div className={`bg-white rounded-[2.5rem] p-6 lg:p-8 transition-all duration-500 ease-out ${
@@ -43,10 +58,13 @@ export const SearchInput = memo(({
             )}
           </div>
           
-          <div className="flex-1 mt-1">
+          <div 
+            ref={scrollContainerRef}
+            className="flex-1 mt-1 max-h-[260px] overflow-y-auto pr-2 custom-scrollbar scroll-smooth"
+          >
             {!isRecording && !hasTranscription ? (
               <div className="text-slate-350 text-2xl font-light tracking-tight mt-1 select-none">
-                {language.value === "English" 
+                {language.value === "English"  
                   ? "Click the microphone to start speaking..." 
                   : `Click the microphone to speak and translate to ${language.value}...`}
               </div>
