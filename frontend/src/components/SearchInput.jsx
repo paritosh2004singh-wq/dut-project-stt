@@ -12,6 +12,7 @@ export const SearchInput = memo(({
   activeEnglishText,
   translatedText,
   isTranslating,
+  isSilent,
   language,
   connectionStatus,
   audioLevel,
@@ -117,6 +118,11 @@ export const SearchInput = memo(({
                     {formatDuration(duration)}
                   </span>
                 </div>
+                {isSilent && (
+                  <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full animate-pulse">
+                    <span className="text-xs font-medium tracking-wide">Silence detected — stopping…</span>
+                  </div>
+                )}
               </>
             )}
           </div>

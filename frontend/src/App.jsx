@@ -25,6 +25,7 @@ function App() {
     translatedText,
     isTranslating,
     activeEnglishText,
+    isSilent,
     startRecording,
     stopRecording,
     setConfirmedText,
@@ -56,6 +57,7 @@ function App() {
             activeEnglishText={activeEnglishText}
             translatedText={translatedText}
             isTranslating={isTranslating}
+            isSilent={isSilent}
             language={language}
             connectionStatus={connectionStatus}
             audioLevel={audioLevel}

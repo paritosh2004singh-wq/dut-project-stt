@@ -79,8 +79,8 @@ async def transcribe_ws(websocket: WebSocket) -> None:
             # Text frame → control signal
             elif "text" in message and message["text"] is not None:
                 text = message["text"].strip()
-                if text.lower() == "stop":
-                    logger.info("Client sent stop signal")
+                if text.lower() in ("stop", "auto_stop"):
+                    logger.info("Client sent %s signal", text.lower())
                     break
                 else:
                     try:

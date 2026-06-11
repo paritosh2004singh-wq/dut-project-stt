@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL?.trim() || "ws://localhost:8080";
 
+const VAD_SILENCE_TIMEOUT_MS = 1500;
+const SILENCE_ENERGY_THRESHOLD = 5;
+
 const getWebSocketUrl = () => {
   let normalizedBaseUrl = wsBaseUrl;
 
@@ -26,6 +29,7 @@ export const useAudioRecording = (language) => {
   const [translatedText, setTranslatedText] = useState("");
   const [isTranslating, setIsTranslating] = useState(false);
   const [activeEnglishText, setActiveEnglishText] = useState("");
+  const [isSilent, setIsSilent] = useState(false);
 
   const socketRef = useRef(null);
   const audioContextRef = useRef(null);
@@ -42,6 +46,8 @@ export const useAudioRecording = (language) => {
   const pingIntervalRef = useRef(null);
   const pongTimeoutRef = useRef(null);
   const highestSequenceRef = useRef(-1);
+  const silenceTimerRef = useRef(null);
+  const stopRecordingRef = useRef(null);
 
   const floatTo16BitPCM = useCallback((float32Array) => {
     const int16Array = new Int16Array(float32Array.length);
@@ -58,6 +64,27 @@ export const useAudioRecording = (language) => {
       analyserRef.current.getByteFrequencyData(dataArray);
       const average = dataArray.reduce((total, value) => total + value) / dataArray.length;
       setAudioLevel(average);
+
+      // Silence auto-stop detection
+      if (average < SILENCE_ENERGY_THRESHOLD) {
+        if (!silenceTimerRef.current) {
+          setIsSilent(true);
+          silenceTimerRef.current = setTimeout(() => {
+            // Auto-stop recording after sustained silence
+            if (stopRecordingRef.current) {
+              stopRecordingRef.current();
+            }
+          }, VAD_SILENCE_TIMEOUT_MS);
+        }
+      } else {
+        // Speech detected — reset silence timer
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
+        setIsSilent(false);
+      }
+
       animationFrameRef.current = requestAnimationFrame(refreshAudioLevel);
     }
   }, []);
@@ -81,6 +108,11 @@ export const useAudioRecording = (language) => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
+    }
+
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
     }
     
     if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
@@ -307,9 +339,15 @@ export const useAudioRecording = (language) => {
     setIsRecording(false);
     setAudioLevel(0);
     setDuration(0);
+    setIsSilent(false);
     setFastStatus("connecting");
     setSlowStatus("connecting");
   }, [cleanup]);
+
+  // Keep stopRecordingRef in sync so the silence timer closure can call it
+  useEffect(() => {
+    stopRecordingRef.current = stopRecording;
+  }, [stopRecording]);
 
   useEffect(() => {
     if (!isRecording) {
@@ -337,6 +375,7 @@ export const useAudioRecording = (language) => {
     translatedText,
     isTranslating,
     activeEnglishText,
+    isSilent,
     autoSearchCandidate: (translatedText || confirmedText).trim(),
     startRecording,
     stopRecording,
