@@ -5,8 +5,9 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.core.config import settings
-from app.models.messages import ConfigMessage
+from app.models.messages import ConfigMessage, ResumeMessage
 from app.services.session import TranscriptionSession
+import uuid
  
 logger = logging.getLogger(__name__)
  
@@ -35,13 +36,22 @@ async def transcribe_ws(websocket: WebSocket) -> None:
         if raw_config is None:
             raise ValueError("Expected initial text config message")
         
-        config = ConfigMessage(**json.loads(raw_config))
-        logger.info(
-            "Session config: sample_rate=%s fast=%sms slow=%sms",
-            config.sample_rate,
-            config.fast_delay_ms,
-            config.slow_delay_ms,
-        )
+        raw_msg = json.loads(raw_config)
+        if raw_msg.get("type") == "resume_session":
+            resume_msg = ResumeMessage(**raw_msg)
+            config = ConfigMessage(
+                session_id=resume_msg.session_id,
+                target_language=resume_msg.target_language
+            )
+            logger.info("Resuming session: %s", config.session_id)
+        else:
+            config = ConfigMessage(**raw_msg)
+            logger.info(
+                "Session config: sample_rate=%s fast=%sms slow=%sms",
+                config.sample_rate,
+                config.fast_delay_ms,
+                config.slow_delay_ms,
+            )
  
         # ── Step 2: create and start the session ──────────────────────────────
         session = TranscriptionSession(
@@ -68,10 +78,17 @@ async def transcribe_ws(websocket: WebSocket) -> None:
  
             # Text frame → control signal
             elif "text" in message and message["text"] is not None:
-                text = message["text"].strip().lower()
-                if text == "stop":
+                text = message["text"].strip()
+                if text.lower() == "stop":
                     logger.info("Client sent stop signal")
                     break
+                else:
+                    try:
+                        parsed = json.loads(text)
+                        if parsed.get("type") == "ping":
+                            await websocket.send_text('{"type": "pong"}')
+                    except Exception:
+                        pass
  
     except asyncio.TimeoutError:
         logger.warning("Timed out waiting for config message")

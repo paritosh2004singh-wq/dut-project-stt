@@ -9,6 +9,7 @@ export const SearchInput = memo(({
   isRecording,
   confirmedText,
   partialText,
+  activeEnglishText,
   translatedText,
   isTranslating,
   language,
@@ -17,18 +18,12 @@ export const SearchInput = memo(({
   duration,
   onStartRecording,
   onStopRecording,
-  onClear,
-  searchQuery,
-  onSearchQueryChange,
-  onSearchSubmit
+  onClear
 }) => {
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && searchQuery?.trim()) {
-      onSearchSubmit(searchQuery);
-    }
-  };
-
   const hasTranscription = confirmedText || partialText || translatedText;
+
+  // Combine active English segment and partial text for transient feedback
+  const parenthesizedText = [activeEnglishText?.trim(), partialText?.trim()].filter(Boolean).join(" ");
 
   return (
     <div className={`bg-white rounded-[2.5rem] p-6 lg:p-8 transition-all duration-500 ease-out ${
@@ -50,16 +45,11 @@ export const SearchInput = memo(({
           
           <div className="flex-1 mt-1">
             {!isRecording && !hasTranscription ? (
-              <input
-                type="text"
-                value={searchQuery || ""}
-                onChange={(e) => onSearchQueryChange && onSearchQueryChange(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={language.value === "English" 
-                  ? "Type to search or start speaking..." 
-                  : `Type to search or speak to translate to ${language.value}...`}
-                className="w-full bg-transparent text-slate-600 text-2xl font-light tracking-tight mt-1 outline-none placeholder:text-slate-300 focus:text-[#1d1d1f]"
-              />
+              <div className="text-slate-350 text-2xl font-light tracking-tight mt-1 select-none">
+                {language.value === "English" 
+                  ? "Click the microphone to start speaking..." 
+                  : `Click the microphone to speak and translate to ${language.value}...`}
+              </div>
             ) : (
               <div className="text-2xl leading-relaxed tracking-tight">
                 {language.value === "English" ? (
@@ -69,21 +59,28 @@ export const SearchInput = memo(({
                   </>
                 ) : (
                   <>
-                    <span className="text-[#1d1d1f] font-medium">
-                      {translatedText ? translatedText : (isTranslating ? "Translating..." : "Listening...")}
-                    </span>
+                    {translatedText && (
+                      <span className="text-[#1d1d1f] font-medium">{translatedText}</span>
+                    )}
+                    {isRecording && parenthesizedText && (
+                      <span className="text-slate-400 font-light ml-2">
+                        ({parenthesizedText})
+                      </span>
+                    )}
+                    {!translatedText && !parenthesizedText && (
+                      <span className="text-slate-400 font-light">
+                        {isTranslating ? "Translating..." : "Listening..."}
+                      </span>
+                    )}
                   </>
                 )}
               </div>
             )}
           </div>
 
-          {(hasTranscription || searchQuery) && !isRecording && (
+          {hasTranscription && !isRecording && (
             <button 
-              onClick={() => {
-                if (onClear) onClear();
-                if (onSearchQueryChange) onSearchQueryChange("");
-              }}
+              onClick={onClear}
               className="mt-2 p-2 bg-[#f5f5f7] hover:bg-[#e8e8ed] text-slate-500 rounded-full transition-colors"
             >
               <FaTimes />

@@ -1,16 +1,10 @@
 services:
-  db:
-    image: pgvector/pgvector:pg16
-    container_name: stt-postgres
+  redis:
+    image: redis:7-alpine
+    container_name: stt-redis
     restart: always
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: stt_db
     ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - "6379:6379"
 
   backend:
     build:
@@ -21,11 +15,43 @@ services:
     ports:
       - "8080:8080"
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:password@db:5432/stt_db
+      REDIS_URL: redis://redis:6379/0
     env_file:
       - ./backend/.env
     depends_on:
-      - db
+      - redis
+    volumes:
+      - ./backend:/app
+
+  stt-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: stt-worker
+    restart: always
+    command: ["python", "worker_stt.py"]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - redis
+    volumes:
+      - ./backend:/app
+
+  llm-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: stt-llm-worker
+    restart: always
+    command: ["python", "worker_llm.py"]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - redis
     volumes:
       - ./backend:/app
 
@@ -37,20 +63,7 @@ services:
     restart: always
     ports:
       - "5173:5173"
+    env_file:
+      - ./frontend/.env.example
     depends_on:
       - backend
-
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: stt-pgadmin
-    restart: always
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "5050:80"
-    depends_on:
-      - db
-
-volumes:
-  postgres_data:

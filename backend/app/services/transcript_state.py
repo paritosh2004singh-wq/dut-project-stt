@@ -1,5 +1,5 @@
 import difflib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
  
 from app.models.messages import StatusKind

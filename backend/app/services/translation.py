@@ -1,6 +1,6 @@
 import asyncio
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from dotenv import load_dotenv
 
 
@@ -239,14 +239,14 @@ async def main():
     )
     
     if result["success"]:
-        print(f"✓ Translation successful")
+        print("✓ Translation successful")
         print(f"Original: {result['original_text']}")
         print(f"Translated ({result['target_language']}): {result['translated_text']}")
         print(f"Model used: {result['model_used']}")
         if result["usage"]:
             print(f"Tokens used: {result['usage']['total_tokens']}")
     else:
-        print(f"✗ Translation failed")
+        print("✗ Translation failed")
         print(f"Error Type: {result['error_type']}")
         print(f"Error: {result['error']}")
     
@@ -263,7 +263,7 @@ async def main():
     )
     
     if result["success"]:
-        print(f"✓ Translation successful")
+        print("✓ Translation successful")
         print(f"Original: {result['original_text']}")
         print(f"Translated ({result['target_language']}): {result['translated_text']}")
     else:
@@ -282,7 +282,7 @@ async def main():
     )
     
     if not result["success"]:
-        print(f"✓ Error caught successfully")
+        print("✓ Error caught successfully")
         print(f"Error Type: {result['error_type']}")
         print(f"Error Message: {result['error']}")
     
@@ -298,7 +298,7 @@ async def main():
     )
     
     if result["success"]:
-        print(f"✓ Translation successful")
+        print("✓ Translation successful")
         print(f"Original: {result['original_text']}")
         print(f"Translated ({result['target_language']}): {result['translated_text']}")
 

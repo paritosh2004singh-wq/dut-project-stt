@@ -25,6 +25,7 @@ export const useAudioRecording = (language) => {
   const [slowStatus, setSlowStatus] = useState("connecting");
   const [translatedText, setTranslatedText] = useState("");
   const [isTranslating, setIsTranslating] = useState(false);
+  const [activeEnglishText, setActiveEnglishText] = useState("");
 
   const socketRef = useRef(null);
   const audioContextRef = useRef(null);
@@ -33,6 +34,14 @@ export const useAudioRecording = (language) => {
   const animationFrameRef = useRef(null);
   const startTimeRef = useRef(null);
   const analyserRef = useRef(null);
+  
+  const sessionIdRef = useRef(null);
+  const intentionalStopRef = useRef(false);
+  const reconnectAttemptRef = useRef(0);
+  const reconnectTimeoutRef = useRef(null);
+  const pingIntervalRef = useRef(null);
+  const pongTimeoutRef = useRef(null);
+  const highestSequenceRef = useRef(-1);
 
   const floatTo16BitPCM = useCallback((float32Array) => {
     const int16Array = new Int16Array(float32Array.length);
@@ -73,17 +82,47 @@ export const useAudioRecording = (language) => {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
+    
+    if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+    if (pongTimeoutRef.current) clearTimeout(pongTimeoutRef.current);
+    if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+
+    if (socketRef.current) {
+      try {
+        socketRef.current.close();
+      } catch (e) {
+        console.warn("Error closing socket during cleanup:", e);
+      }
+      socketRef.current = null;
+    }
+  }, []);
+  
+  const stopHeartbeat = useCallback(() => {
+    if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+    if (pongTimeoutRef.current) clearTimeout(pongTimeoutRef.current);
   }, []);
 
-  const setupWebSocket = useCallback((onConfigSent) => {
+  const setupWebSocket = useCallback((isReconnect = false) => {
+    if (socketRef.current) {
+      try {
+        socketRef.current.close();
+      } catch (e) {
+        console.warn("Error closing old socket:", e);
+      }
+    }
     const socket = new WebSocket(getWebSocketUrl());
     socketRef.current = socket;
 
     socket.onopen = () => {
       setConnectionStatus("connected");
+      reconnectAttemptRef.current = 0;
+      stopHeartbeat();
+      
+      const session_id = sessionIdRef.current;
 
       const config = {
-        type: "config",
+        type: isReconnect ? "resume_session" : "config",
+        session_id: session_id,
         sample_rate: 16000,
         fast_delay_ms: 240,
         slow_delay_ms: 2400,
@@ -92,21 +131,60 @@ export const useAudioRecording = (language) => {
       };
 
       socket.send(JSON.stringify(config));
-      onConfigSent?.();
+      
+      // Setup Ping/Pong Heartbeat
+      pingIntervalRef.current = setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: "ping" }));
+          
+          pongTimeoutRef.current = setTimeout(() => {
+            console.warn("WebSocket heartbeat timed out. Closing socket.");
+            socket.close();
+          }, 30000); // 30 seconds wait for pong
+        }
+      }, 10000); // Ping every 10 seconds
     };
 
     socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-
-        if (message.type === "transcript") {
+        
+        if (message.type === "pong") {
+          if (pongTimeoutRef.current) clearTimeout(pongTimeoutRef.current);
+          return;
+        }
+        
+        if (message.type === "session_restored") {
+          setConfirmedText(message.history || "");
+          setPartialText("");
+          setActiveEnglishText("");
+          if (message.translated_history) {
+            setTranslatedText(message.translated_history);
+          }
+        } else if (message.type === "transcript") {
+          if (message.sequence !== undefined) {
+             if (message.sequence <= highestSequenceRef.current) {
+                // Duplicate or out-of-order segment, ignore
+                return;
+             }
+             highestSequenceRef.current = message.sequence;
+          }
+          
           setConfirmedText(message.confirmed_text || "");
           setPartialText(message.partial_text || "");
+          setActiveEnglishText(message.active_english_text || "");
           setIsTranslating(message.is_translating || false);
 
           if (message.translated_text !== undefined) {
             setTranslatedText(message.translated_text || "");
           }
+        } else if (message.type === "translation_started") {
+          setIsTranslating(true);
+        } else if (message.type === "translation_complete") {
+          if (message.translated_text !== undefined) {
+            setTranslatedText(message.translated_text || "");
+          }
+          setIsTranslating(false);
         } else if (message.type === "status") {
           if (message.stream === "fast") {
             setFastStatus(message.status);
@@ -122,17 +200,32 @@ export const useAudioRecording = (language) => {
     };
 
     socket.onclose = () => {
-      setConnectionStatus("disconnected");
+      stopHeartbeat();
+      if (!intentionalStopRef.current) {
+         setConnectionStatus("reconnecting");
+         const attempt = reconnectAttemptRef.current;
+         const delay = Math.min(1000 * Math.pow(2, attempt), 30000) + Math.random() * 1000;
+         
+         reconnectTimeoutRef.current = setTimeout(() => {
+            reconnectAttemptRef.current += 1;
+            console.log(`Reconnecting attempt ${reconnectAttemptRef.current}...`);
+            setupWebSocket(true);
+         }, delay);
+      } else {
+         setConnectionStatus("disconnected");
+      }
     };
 
     socket.onerror = () => {
-      setConnectionStatus("error");
+      if (intentionalStopRef.current) {
+          setConnectionStatus("error");
+      }
     };
 
     return socket;
-  }, [language]);
+  }, [language, stopHeartbeat]);
 
-  const setupAudioProcessing = useCallback(async (socket) => {
+  const setupAudioProcessing = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         channelCount: 1,
@@ -160,10 +253,10 @@ export const useAudioRecording = (language) => {
     processorRef.current = processor;
 
     processor.onaudioprocess = (event) => {
-      if (socket.readyState === WebSocket.OPEN) {
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
         const float32Data = event.inputBuffer.getChannelData(0);
         const int16Data = floatTo16BitPCM(float32Data);
-        socket.send(int16Data.buffer);
+        socketRef.current.send(int16Data.buffer);
       }
     };
 
@@ -176,26 +269,36 @@ export const useAudioRecording = (language) => {
       setConfirmedText("");
       setPartialText("");
       setTranslatedText("");
+      setActiveEnglishText("");
       setIsTranslating(false);
+      intentionalStopRef.current = false;
+      reconnectAttemptRef.current = 0;
+      highestSequenceRef.current = -1;
+      
+      let sessionId = localStorage.getItem("transcription_session_id");
+      if (!sessionId) {
+          sessionId = crypto.randomUUID();
+          localStorage.setItem("transcription_session_id", sessionId);
+      }
+      sessionIdRef.current = sessionId;
 
-      const socket = setupWebSocket(async () => {
-        try {
-          await setupAudioProcessing(socket);
-          setIsRecording(true);
-          startTimeRef.current = Date.now();
-          updateAudioLevel();
-        } catch (error) {
-          console.error("Error accessing media devices:", error);
-          setConnectionStatus("error");
-        }
-      });
+      const isReconnect = !!localStorage.getItem("transcription_session_id") && confirmedText.length > 0;
+      setupWebSocket(isReconnect);
+
+      await setupAudioProcessing();
+      setIsRecording(true);
+      startTimeRef.current = Date.now();
+      updateAudioLevel();
     } catch (error) {
       console.error("Error starting recording:", error);
       setConnectionStatus("error");
     }
-  }, [setupAudioProcessing, setupWebSocket, updateAudioLevel]);
+  }, [setupAudioProcessing, setupWebSocket, updateAudioLevel, confirmedText.length]);
 
   const stopRecording = useCallback(() => {
+    intentionalStopRef.current = true;
+    localStorage.removeItem("transcription_session_id");
+    
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send("stop");
     }
@@ -233,11 +336,13 @@ export const useAudioRecording = (language) => {
     slowStatus,
     translatedText,
     isTranslating,
+    activeEnglishText,
     autoSearchCandidate: (translatedText || confirmedText).trim(),
     startRecording,
     stopRecording,
     setConfirmedText,
     setPartialText,
     setTranslatedText,
+    setActiveEnglishText,
   };
 };
