@@ -42,7 +42,7 @@ function App() {
   }, [setConfirmedText, setPartialText, setTranslatedText, setActiveEnglishText]);
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#f5f5f7] text-[#1d1d1f] font-sans selection:bg-blue-200 selection:text-blue-900 justify-center items-center">
+    <div className="flex min-h-screen w-full overflow-y-auto bg-[#f5f5f7] text-[#1d1d1f] font-sans selection:bg-blue-200 selection:text-blue-900 justify-center items-center">
       <main className="w-full max-w-4xl px-6 py-10 lg:px-12 lg:py-16 flex flex-col justify-center items-center">
         <div className="text-center mb-12">
           <h1 className="text-5xl font-semibold tracking-tight text-slate-900 mb-4">Voice Intel</h1>

@@ -33,13 +33,19 @@ const selectStyles = {
   }),
   menu: (base) => ({
     ...base,
-    background: 'white/80',
+    background: 'rgba(255,255,255,0.9)',
     backdropFilter: 'blur(16px)',
     border: '1px solid #e5e7eb',
     borderRadius: '1rem',
     overflow: 'hidden',
     boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
-    marginTop: '8px'
+    marginBottom: '8px'
+  }),
+  menuList: (base) => ({
+    ...base,
+    maxHeight: '200px',
+    overflowY: 'auto',
+    padding: '4px 0',
   }),
   option: (base, state) => ({
     ...base,
@@ -79,6 +85,7 @@ export const SearchOptions = memo(({
             placeholder="Language"
             styles={selectStyles}
             isSearchable={false}
+            menuPlacement="top"
           />
         </div>
 
