@@ -159,21 +159,30 @@ async def process_audio_stream():
                                 pass
                             del active_sessions[session_id]
 
-                    if session_id not in active_sessions:
-                        orch = STTSessionOrchestrator(session_id, target_language)
-                        await orch.start()
-                        active_sessions[session_id] = orch
-                    
-                    orch = active_sessions[session_id]
-                    
+                    # Only create orchestrator when we have actual audio chunk
                     if "chunk" in payload:
+                        if session_id not in active_sessions:
+                            orch = STTSessionOrchestrator(session_id, target_language)
+                            await orch.start()
+                            active_sessions[session_id] = orch
+                        
+                        orch = active_sessions[session_id]
                         chunk = base64.b64decode(payload["chunk"])
                         await orch.feed(chunk)
-                        
-                    if payload.get("event") == "speech_ended":
+                    elif session_id in active_sessions:
+                        orch = active_sessions[session_id]
+                    else:
+                        # Event for non-existent session, skip
+                        await redis_client.xack(stream, "stt_workers", msg_id)
+                        continue
+                    
+                    # Handle events
+                    if payload.get("event") == "speech_ended" and session_id in active_sessions:
+                        orch = active_sessions[session_id]
                         await orch.process_speech_ended()
                         
-                    if payload.get("event") == "disconnect":
+                    if payload.get("event") == "disconnect" and session_id in active_sessions:
+                        orch = active_sessions[session_id]
                         await orch.feed(b"EOF")
                         await orch.process_speech_ended()
                         del active_sessions[session_id]
