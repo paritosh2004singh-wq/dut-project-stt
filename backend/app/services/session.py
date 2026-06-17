@@ -21,11 +21,13 @@ class TranscriptionSession:
         fast_delay_ms: int = 240, # Kept for API compatibility
         slow_delay_ms: int = 2400,
         sample_rate: int = 16000,
+        chunk_duration_ms: int = 10,
         target_language: str = "English",
         vad_threshold: float = settings.vad_threshold,
         vad_min_speech_ms: int = settings.vad_min_speech_ms,
         vad_min_silence_ms: int = settings.vad_min_silence_ms,
         vad_speech_pad_ms: int = settings.vad_speech_pad_ms,
+        vad_aggressiveness: int = settings.vad_aggressiveness,
         **kwargs
     ) -> None:
         self._ws = websocket
@@ -34,10 +36,12 @@ class TranscriptionSession:
         self._vad_gate = build_voice_activity_gate(
             VADConfig(
                 sample_rate=sample_rate,
+                chunk_duration_ms=chunk_duration_ms,
                 threshold=vad_threshold,
                 min_speech_duration_ms=vad_min_speech_ms,
                 min_silence_duration_ms=vad_min_silence_ms,
                 speech_pad_ms=vad_speech_pad_ms,
+                aggressiveness=vad_aggressiveness,
             )
         )
         self._pubsub = redis_client.pubsub()

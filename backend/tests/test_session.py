@@ -18,6 +18,7 @@ import struct
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.services.voice_activity import VADFrameResult
+import app.services.session
 
 
 def _make_pcm_window(value: float, num_samples: int = 512) -> bytes:

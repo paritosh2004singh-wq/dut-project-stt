@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     vad_min_speech_ms: int = 250
     vad_min_silence_ms: int = 100
     vad_speech_pad_ms: int = 30
+    vad_aggressiveness: int = 2
 
     # Server
     app_host: str = "0.0.0.0"

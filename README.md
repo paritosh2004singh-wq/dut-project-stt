@@ -8,7 +8,7 @@ It provides real-time transcription and immediate translation through a decouple
 
 - **Decoupled Microservices:** Audio ingestion, transcription, and translation are entirely separated into horizontally scalable Redis Stream workers.
 - **Dual-Delay Transcription:** Utilizes Mistral realtime streaming. A fast stream (~240ms) provides immediate partial feedback, while a slow stream (~2400ms) delivers high-accuracy confirmed text.
-- **Hallucination Suppression:** A PyTorch Silero VAD gate filters out silence, preventing the STT models from hallucinating ambient noise or outputting endless "umm" and "ahh" fillers.
+- **Hallucination Suppression:** A WebRTC VAD gate filters out silence, preventing the STT models from hallucinating ambient noise or outputting endless "umm" and "ahh" fillers.
 - **Apple-like Unified Dashboard:** A sleek React UI utilizing Tailwind CSS v4 to manage live recordings and real-time translations.
 
 ## 🏗 Directory Layout
@@ -22,6 +22,8 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed Mermaid diagrams of the sy
 - `backend/worker_stt.py` - Consumes audio chunks, generates Mistral transcripts.
 - `backend/worker_llm.py` - Consumes completed transcripts, translates via Groq.
 - `docker-compose.yml` - Orchestration of Redis and workers.
+
+**Deployment Note:** The backend API has been aggressively optimized and uses a lightweight WebRTC VAD. It is now suitable for deployment on low-memory instances like an `e2-micro` VM.
 
 ### Frontend
 

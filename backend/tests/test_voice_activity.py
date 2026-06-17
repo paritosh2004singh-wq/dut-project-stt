@@ -53,7 +53,7 @@ class FakeProbabilityBackend:
         self._probabilities = list(probabilities or [])
         self._call_index = 0
 
-    def predict(self, samples):
+    def predict(self, window, samples):
         if self._call_index < len(self._probabilities):
             prob = self._probabilities[self._call_index]
         else:
@@ -91,22 +91,22 @@ class TestEnergyProbabilityBackend(unittest.TestCase):
 
     def test_silence_returns_zero(self):
         backend = EnergyProbabilityBackend(threshold_hint=0.02)
-        prob = backend.predict([0.0] * 512)
+        prob = backend.predict(b"", [0.0] * 512)
         self.assertAlmostEqual(prob, 0.0, places=4)
 
     def test_loud_signal_returns_high(self):
         backend = EnergyProbabilityBackend(threshold_hint=0.02)
-        prob = backend.predict([0.5] * 512)
+        prob = backend.predict(b"", [0.5] * 512)
         self.assertGreater(prob, 0.9)
 
     def test_empty_samples_returns_zero(self):
         backend = EnergyProbabilityBackend()
-        prob = backend.predict([])
+        prob = backend.predict(b"", [])
         self.assertEqual(prob, 0.0)
 
     def test_output_capped_at_one(self):
         backend = EnergyProbabilityBackend(threshold_hint=0.001)
-        prob = backend.predict([1.0] * 512)
+        prob = backend.predict(b"", [1.0] * 512)
         self.assertLessEqual(prob, 1.0)
 
 
@@ -119,11 +119,12 @@ class TestVoiceActivityGateSpeechDetection(unittest.TestCase):
         if config is None:
             config = VADConfig(
                 sample_rate=16000,
+                chunk_duration_ms=32, # Using 32 to get exactly 512 samples for tests (16 * 32 = 512)
                 threshold=0.5,
                 min_speech_duration_ms=250,
                 min_silence_duration_ms=100,
                 speech_pad_ms=30,
-                window_size_samples=512,
+                aggressiveness=2,
             )
         return VoiceActivityGate(backend=backend, config=config)
 
@@ -212,11 +213,12 @@ class TestVoiceActivityGateFlush(unittest.TestCase):
         if config is None:
             config = VADConfig(
                 sample_rate=16000,
+                chunk_duration_ms=32,
                 threshold=0.5,
                 min_speech_duration_ms=250,
                 min_silence_duration_ms=100,
                 speech_pad_ms=30,
-                window_size_samples=512,
+                aggressiveness=2,
             )
         return VoiceActivityGate(backend=backend, config=config)
 
@@ -264,11 +266,12 @@ class TestVoiceActivityGatePreRoll(unittest.TestCase):
         backend = FakeProbabilityBackend(probabilities)
         config = VADConfig(
             sample_rate=16000,
+            chunk_duration_ms=32,
             threshold=0.5,
             min_speech_duration_ms=50,  # Low so speech confirms quickly
             min_silence_duration_ms=100,
             speech_pad_ms=speech_pad_ms,
-            window_size_samples=512,
+            aggressiveness=2,
         )
         return VoiceActivityGate(backend=backend, config=config)
 
@@ -317,13 +320,13 @@ class TestBuildVoiceActivityGate(unittest.TestCase):
         """When torch is not available, should fall back to EnergyProbabilityBackend."""
         config = VADConfig()
 
-        # Mock the Silero backend to fail on load
+        # Mock the WebRtcVadBackend to fail on load
         with patch(
-            "app.services.voice_activity.SileroProbabilityBackend"
-        ) as MockSilero:
+            "app.services.voice_activity.WebRtcVadBackend"
+        ) as MockWebRtc:
             mock_instance = MagicMock()
-            mock_instance.load.side_effect = ImportError("No torch")
-            MockSilero.return_value = mock_instance
+            mock_instance.load.side_effect = ImportError("No webrtc")
+            MockWebRtc.return_value = mock_instance
 
             gate = build_voice_activity_gate(config)
 

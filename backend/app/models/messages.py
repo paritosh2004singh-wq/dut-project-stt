@@ -35,6 +35,7 @@ class ConfigMessage(BaseModel):
     vad_min_speech_ms: int | None = Field(default=None, ge=0)
     vad_min_silence_ms: int | None = Field(default=None, ge=0)
     vad_speech_pad_ms: int | None = Field(default=None, ge=0)
+    vad_aggressiveness: int | None = Field(default=None, ge=0, le=3)
 
 class ResumeMessage(BaseModel):
     """Client sends this JSON message to resume an existing session."""

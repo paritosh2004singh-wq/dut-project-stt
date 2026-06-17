@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: stt-frontend
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    rootDir: frontend
+    envVars:
+      - key: VITE_WS_BASE_URL
+        sync: false

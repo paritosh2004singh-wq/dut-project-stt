@@ -15,11 +15,16 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class VADConfig:
     sample_rate: int = 16000
+    chunk_duration_ms: int = 10
     threshold: float = 0.5
     min_speech_duration_ms: int = 250
     min_silence_duration_ms: int = 100
     speech_pad_ms: int = 30
-    window_size_samples: int = 512
+    aggressiveness: int = 2
+
+    @property
+    def window_size_samples(self) -> int:
+        return int(self.sample_rate * self.chunk_duration_ms / 1000)
 
 
 @dataclass
@@ -31,42 +36,34 @@ class VADFrameResult:
 
 
 class ProbabilityBackend(Protocol):
-    def predict(self, samples: Sequence[float]) -> float:
+    def predict(self, window: bytes, samples: Sequence[float]) -> float:
         ...
 
 
-class SileroProbabilityBackend:
-    def __init__(self, sample_rate: int) -> None:
+class WebRtcVadBackend:
+    def __init__(self, sample_rate: int, aggressiveness: int) -> None:
         self._sample_rate = sample_rate
-        self._torch = None
-        self._model = None
+        self._aggressiveness = aggressiveness
+        self._vad = None
 
     def load(self) -> None:
-        if self._model is not None:
+        if self._vad is not None:
             return
+        
+        import webrtcvad
+        self._vad = webrtcvad.Vad(self._aggressiveness)
 
-        torch = importlib.import_module("torch")
-        importlib.import_module("torchaudio")
-        torch.set_num_threads(1)
-        model, _utils = torch.hub.load(
-            repo_or_dir="snakers4/silero-vad",
-            model="silero_vad",
-            trust_repo=True,
-            force_reload=False,
-        )
-        if hasattr(model, "reset_states"):
-            model.reset_states()
-
-        self._torch = torch
-        self._model = model
-
-    def predict(self, samples: Sequence[float]) -> float:
-        if self._model is None:
+    def predict(self, window: bytes, samples: Sequence[float]) -> float:
+        if self._vad is None:
             self.load()
 
-        assert self._torch is not None
-        tensor = self._torch.tensor(samples, dtype=self._torch.float32)
-        return float(self._model(tensor, self._sample_rate).item())
+        assert self._vad is not None
+        try:
+            is_speech = self._vad.is_speech(window, self._sample_rate)
+            return 1.0 if is_speech else 0.0
+        except Exception as exc:
+            logger.warning("WebRTC VAD error: %s", exc)
+            return 0.0
 
 
 class EnergyProbabilityBackend:
@@ -77,7 +74,7 @@ class EnergyProbabilityBackend:
     def __init__(self, threshold_hint: float = 0.02) -> None:
         self._threshold_hint = threshold_hint
 
-    def predict(self, samples: Sequence[float]) -> float:
+    def predict(self, window: bytes, samples: Sequence[float]) -> float:
         if not samples:
             return 0.0
 
@@ -120,7 +117,7 @@ class VoiceActivityGate:
 
     @property
     def window_duration_ms(self) -> float:
-        return (self._config.window_size_samples / self._config.sample_rate) * 1000
+        return float(self._config.chunk_duration_ms)
 
     def feed(self, chunk: bytes) -> VADFrameResult:
         self._pending.extend(chunk)
@@ -157,7 +154,7 @@ class VoiceActivityGate:
 
     def _process_window(self, window: bytes, result: VADFrameResult, *, final_window: bool = False) -> None:
         samples = _decode_pcm16_window(window)
-        probability = self._backend.predict(samples)
+        probability = self._backend.predict(window, samples)
 
         if not self._speech_active:
             if self._pre_roll_capacity > 0:
@@ -211,11 +208,14 @@ class VoiceActivityGate:
 
 def build_voice_activity_gate(config: VADConfig) -> VoiceActivityGate:
     try:
-        backend = SileroProbabilityBackend(sample_rate=config.sample_rate)
+        backend = WebRtcVadBackend(
+            sample_rate=config.sample_rate,
+            aggressiveness=config.aggressiveness
+        )
         backend.load()
-        logger.info("Silero VAD backend loaded")
+        logger.info("WebRTC VAD backend loaded")
     except Exception as exc:
-        logger.warning("Silero VAD unavailable, using energy fallback: %s", exc)
+        logger.warning("WebRTC VAD unavailable, using energy fallback: %s", exc)
         backend = EnergyProbabilityBackend()
 
     return VoiceActivityGate(backend=backend, config=config)

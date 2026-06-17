@@ -27,7 +27,7 @@ COPY requirements.txt .
 # Install the project's dependencies using uv pip
 # We use --system to install globally in the container since it's isolated
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system --no-cache -r requirements.txt --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple
+    uv pip install --system --no-cache -r requirements.txt
 
 # Then, add the rest of the project source code
 ADD . /app

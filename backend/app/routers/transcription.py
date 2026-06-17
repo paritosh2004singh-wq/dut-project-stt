@@ -53,6 +53,11 @@ async def transcribe_ws(websocket: WebSocket) -> None:
                 config.slow_delay_ms,
             )
  
+        if config.sample_rate not in (8000, 16000, 32000, 48000):
+            raise ValueError(f"Unsupported sample rate: {config.sample_rate}")
+        if config.chunk_duration_ms not in (10, 20, 30):
+            raise ValueError(f"Unsupported chunk duration: {config.chunk_duration_ms} ms")
+
         # ── Step 2: create and start the session ──────────────────────────────
         session = TranscriptionSession(
             websocket,
@@ -60,11 +65,13 @@ async def transcribe_ws(websocket: WebSocket) -> None:
             fast_delay_ms=config.fast_delay_ms,
             slow_delay_ms=config.slow_delay_ms,
             sample_rate=config.sample_rate,
+            chunk_duration_ms=config.chunk_duration_ms,
             target_language=config.target_language,
             vad_threshold=config.vad_threshold if config.vad_threshold is not None else settings.vad_threshold,
             vad_min_speech_ms=config.vad_min_speech_ms if config.vad_min_speech_ms is not None else settings.vad_min_speech_ms,
             vad_min_silence_ms=config.vad_min_silence_ms if config.vad_min_silence_ms is not None else settings.vad_min_silence_ms,
             vad_speech_pad_ms=config.vad_speech_pad_ms if config.vad_speech_pad_ms is not None else settings.vad_speech_pad_ms,
+            vad_aggressiveness=getattr(config, 'vad_aggressiveness', None) if getattr(config, 'vad_aggressiveness', None) is not None else settings.vad_aggressiveness,
         )
         await session.start()
  

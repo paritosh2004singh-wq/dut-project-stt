@@ -1,0 +1,48 @@
+FROM python:3.13-slim-trixie
+
+# The installer requires curl (and certificates) to download the release archive
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
+
+# Download the latest installer
+ADD https://astral.sh/uv/install.sh /uv-installer.sh
+
+# Run the installer then remove it
+RUN sh /uv-installer.sh && rm /uv-installer.sh
+
+# Ensure the installed binary is on the `PATH`
+ENV PATH="/root/.local/bin/:$PATH"
+
+# Install the project into `/app`
+WORKDIR /app
+
+# Enable bytecode compilation
+ENV UV_COMPILE_BYTECODE=1
+
+# Copy from the cache instead of linking since it's a mounted volume
+ENV UV_LINK_MODE=copy
+
+# Copy only the worker-specific requirements
+COPY requirements.worker.txt .
+
+# Install only the worker dependencies (no torch, fastapi, uvicorn etc.)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system --no-cache -r requirements.worker.txt
+
+# Copy only the files workers need — not the entire backend
+COPY app/__init__.py          app/__init__.py
+COPY app/core/config.py       app/core/config.py
+COPY app/core/redis.py        app/core/redis.py
+COPY app/models/__init__.py   app/models/__init__.py
+COPY app/models/messages.py   app/models/messages.py
+COPY app/services/__init__.py app/services/__init__.py
+COPY app/services/transcript_state.py      app/services/transcript_state.py
+COPY app/services/transcription_runner.py  app/services/transcription_runner.py
+COPY app/services/transcript_cleanup.py    app/services/transcript_cleanup.py
+COPY app/services/translation.py           app/services/translation.py
+
+COPY worker_stt.py .
+COPY worker_llm.py .
+COPY .env .env
+
+# Reset the entrypoint
+ENTRYPOINT []
