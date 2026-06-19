@@ -96,8 +96,17 @@ async def translate_transcription_advanced(
         # Initialize Groq client
         client = AsyncGroq(api_key=api_key)
         
-        # System prompt based on parameters
-        system_prompt = f"""You are a professional translator specializing in {target_language} translations.
+        if target_language.lower() == "english":
+            system_prompt = """You are a professional translator specializing in English translations.
+Rules:
+1. Translate the text into natural, idiomatic English.
+2. Preserve the meaning, not the source wording.
+3. Do not leave any non-English script in the output unless it is a proper noun or brand name.
+4. Maintain the requested tone and preserve or adapt formatting as requested.
+5. Return ONLY the translated text, with no explanations, notes, or quotation marks.
+6. If the text contains mixed language, convert the non-English parts into English as well."""
+        else:
+            system_prompt = f"""You are a professional translator specializing in {target_language} translations.
 Rules:
 1. Translate the text accurately into {target_language}
 2. Maintain {formality.lower()} tone and register

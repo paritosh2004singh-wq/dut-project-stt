@@ -20,6 +20,7 @@ const getWebSocketUrl = () => {
 export const useAudioRecording = (language) => {
   const selectedLanguage = language?.value?.trim() || "English";
   const translateToEnglish = !language || selectedLanguage === "English";
+  const isEnglishMode = selectedLanguage === "English";
   const [isRecording, setIsRecording] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -190,9 +191,15 @@ export const useAudioRecording = (language) => {
         }
         
         if (message.type === "session_restored") {
-          setConfirmedText(message.history || "");
-          setPartialText("");
-          setActiveEnglishText("");
+          if (isEnglishMode) {
+            setConfirmedText("");
+            setPartialText("");
+            setActiveEnglishText("");
+          } else {
+            setConfirmedText(message.history || "");
+            setPartialText("");
+            setActiveEnglishText("");
+          }
           if (message.translated_history) {
             setTranslatedText(message.translated_history);
           }
@@ -205,9 +212,15 @@ export const useAudioRecording = (language) => {
              highestSequenceRef.current = message.sequence;
           }
           
-          setConfirmedText(message.confirmed_text || "");
-          setPartialText(message.partial_text || "");
-          setActiveEnglishText(message.active_english_text || "");
+          if (isEnglishMode) {
+            setConfirmedText("");
+            setPartialText("");
+            setActiveEnglishText("");
+          } else {
+            setConfirmedText(message.confirmed_text || "");
+            setPartialText(message.partial_text || "");
+            setActiveEnglishText(message.active_english_text || "");
+          }
           setIsTranslating(message.is_translating || false);
 
           if (message.translated_text !== undefined) {
@@ -258,7 +271,7 @@ export const useAudioRecording = (language) => {
     };
 
     return socket;
-  }, [selectedLanguage, stopHeartbeat, translateToEnglish]);
+  }, [isEnglishMode, selectedLanguage, stopHeartbeat, translateToEnglish]);
 
   const setupAudioProcessing = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({

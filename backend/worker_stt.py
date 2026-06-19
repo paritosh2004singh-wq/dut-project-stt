@@ -92,21 +92,7 @@ class STTSessionOrchestrator:
                 self.sequence += 1
                 confirmed, partial = self.state.compute_display()
                 confirmed = clean_final_transcript(confirmed)
-                
-                # Compute active english text in current segment (since last speech_ended)
-                active_english_text = confirmed[self.start_text_len:]
-                
-                # Send the standard transcript update
-                msg = {
-                    "type": "transcript",
-                    "sequence": self.sequence,
-                    "confirmed_text": confirmed,
-                    "active_english_text": active_english_text,
-                    "partial_text": partial,
-                    "fast_text": self.state.fast_full_text,
-                    "slow_text": self.state.slow_full_text,
-                    "is_translating": False
-                }
+                msg = self._build_transcript_payload(confirmed, partial)
                 
                 await publish_session_event(self.session_id, msg)
                 
@@ -114,6 +100,34 @@ class STTSessionOrchestrator:
                     break
         finally:
             pass
+
+    def _build_transcript_payload(self, confirmed: str, partial: str) -> dict:
+        english_mode = self.translate_to_english or self.target_language == "English"
+        if english_mode:
+            return {
+                "type": "transcript",
+                "sequence": self.sequence,
+                "confirmed_text": "",
+                "active_english_text": "",
+                "partial_text": "",
+                "fast_text": self.state.fast_full_text,
+                "slow_text": self.state.slow_full_text,
+                "is_translating": True,
+            }
+
+        # Compute active english text in current segment (since last speech_ended)
+        active_english_text = confirmed[self.start_text_len:]
+
+        return {
+            "type": "transcript",
+            "sequence": self.sequence,
+            "confirmed_text": confirmed,
+            "active_english_text": active_english_text,
+            "partial_text": partial,
+            "fast_text": self.state.fast_full_text,
+            "slow_text": self.state.slow_full_text,
+            "is_translating": False,
+        }
 
     async def feed(self, chunk: bytes):
         self.fast_queue.put_nowait(chunk)

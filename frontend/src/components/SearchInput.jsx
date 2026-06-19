@@ -20,8 +20,11 @@ export const SearchInput = memo(({
   onStopRecording,
   onClear
 }) => {
-  const hasTranscription = confirmedText || partialText || translatedText;
   const selectedLanguage = language?.value?.trim() || "English";
+  const hasTranscription = selectedLanguage === "English"
+    ? Boolean(translatedText)
+    : Boolean(confirmedText || partialText || translatedText);
+  const showTranscriptionArea = hasTranscription || (selectedLanguage === "English" && isTranslating);
   const showSourceTranscript = selectedLanguage !== "English";
   const scrollContainerRef = useRef(null);
 
@@ -64,7 +67,7 @@ export const SearchInput = memo(({
             ref={scrollContainerRef}
             className="flex-1 mt-1 max-h-[260px] overflow-y-auto pr-2 custom-scrollbar scroll-smooth"
           >
-            {!isRecording && !hasTranscription ? (
+            {!isRecording && !showTranscriptionArea ? (
               <div className="text-slate-350 text-2xl font-light tracking-tight mt-1 select-none">
                 Click the microphone to speak and translate to {selectedLanguage}...
               </div>

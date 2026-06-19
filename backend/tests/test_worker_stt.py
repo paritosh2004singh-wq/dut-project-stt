@@ -128,6 +128,24 @@ from worker_stt import STTSessionOrchestrator  # noqa: E402
 
 
 class TestWorkerSttEnglishTranslation(unittest.IsolatedAsyncioTestCase):
+    async def test_transcript_payload_redacts_source_text_in_english_mode(self):
+        orch = STTSessionOrchestrator(
+            session_id="session-redact",
+            target_language="English",
+            translate_to_english=True,
+        )
+        orch.state.fast_full_text = "नमस्ते"
+        orch.state.slow_full_text = "नमस्ते"
+        orch.sequence = 7
+        orch.start_text_len = 3
+
+        payload = orch._build_transcript_payload("नमस्ते दुनिया", " दुनिया")
+
+        self.assertEqual(payload["confirmed_text"], "")
+        self.assertEqual(payload["partial_text"], "")
+        self.assertEqual(payload["active_english_text"], "")
+        self.assertTrue(payload["is_translating"])
+
     async def test_inline_translation_runs_for_english_default(self):
         with patch("worker_stt.translate_transcription_advanced", new_callable=AsyncMock) as mock_translate, \
              patch("worker_stt.publish_session_event", new_callable=AsyncMock) as mock_publish_event:

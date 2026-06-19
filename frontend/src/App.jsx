@@ -2,10 +2,9 @@ import { useState, useCallback } from "react";
 import { useAudioRecording } from "./hooks/useAudioRecording";
 import { SearchInput } from "./components/SearchInput";
 import { SearchOptions } from "./components/SearchOptions";
-import { languageOptions } from "./constants/languages";
 
 function App() {
-  const [language, setLanguage] = useState(languageOptions[0]);
+  const [language, setLanguage] = useState(null);
 
   const {
     isRecording,
