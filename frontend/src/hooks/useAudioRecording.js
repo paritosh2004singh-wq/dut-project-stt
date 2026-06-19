@@ -19,7 +19,7 @@ const getWebSocketUrl = () => {
 
 export const useAudioRecording = (language) => {
   const selectedLanguage = language?.value?.trim() || "English";
-  const translateToEnglish = !language;
+  const translateToEnglish = !language || selectedLanguage === "English";
   const [isRecording, setIsRecording] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [duration, setDuration] = useState(0);
