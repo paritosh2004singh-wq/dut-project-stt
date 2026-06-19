@@ -9,6 +9,7 @@ from app.core.redis import redis_client, init_redis_groups, publish_session_even
 from app.services.transcript_state import TranscriptState
 from app.services.transcription_runner import run_stream
 from app.services.transcript_cleanup import clean_final_transcript
+from app.services.translation import translate_transcription_advanced
 from app.models.messages import StreamKind
 
 
@@ -133,10 +134,40 @@ class STTSessionOrchestrator:
         self.start_text_len = len(confirmed)
         
         try:
-            if self.translate_to_english or self.target_language != "English":
+            if self.translate_to_english or self.target_language == "English":
+                await self._translate_inline_to_english(confirmed)
+            else:
                 await publish_translate_job(self.session_id, confirmed, self.target_language)
         except Exception as e:
             logger.error(f"Error on speech_ended: {e}")
+
+    async def _translate_inline_to_english(self, text: str):
+        """Translate directly in the STT worker for the English default path."""
+        await publish_session_event(self.session_id, {"type": "translation_started"})
+
+        result = await translate_transcription_advanced(
+            transcription=text,
+            target_language="English",
+        )
+
+        if result.get("success"):
+            await publish_session_event(self.session_id, {
+                "type": "translation_complete",
+                "translated_text": result["translated_text"],
+            })
+            return
+
+        logger.error(
+            "Inline English translation failed for session %s: %s",
+            self.session_id,
+            result.get("error", "Unknown error"),
+        )
+
+        # Fail closed: clear the translated output rather than exposing source text.
+        await publish_session_event(self.session_id, {
+            "type": "translation_complete",
+            "translated_text": "",
+        })
 
 async def process_audio_stream():
     await init_redis_groups()
