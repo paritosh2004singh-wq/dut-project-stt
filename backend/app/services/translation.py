@@ -66,14 +66,11 @@ async def translate_transcription_advanced(
         return result
     
     if not target_language or not isinstance(target_language, str):
-        result["error"] = "Target language must be a non-empty string"
-        result["error_type"] = "ValidationError"
-        return result
-    
-    if not target_language.strip():
-        result["error"] = "Target language cannot be empty or whitespace only"
-        result["error_type"] = "ValidationError"
-        return result
+        target_language = "English"
+    else:
+        target_language = target_language.strip() or "English"
+
+    result["target_language"] = target_language
     
     # Validate formality parameter
     valid_formality = ["formal", "informal", "neutral"]

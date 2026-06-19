@@ -3,15 +3,8 @@ import { useAudioRecording } from "./hooks/useAudioRecording";
 import { SearchInput } from "./components/SearchInput";
 import { SearchOptions } from "./components/SearchOptions";
 
-const languageOptions = [
-  { value: "English", label: "English" },
-  { value: "Hindi", label: "Hindi" },
-  { value: "Kannada", label: "Kannada" },
-  { value: "Marathi", label: "Marathi" },
-];
-
 function App() {
-  const [language, setLanguage] = useState(languageOptions[0]);
+  const [language, setLanguage] = useState(null);
 
   const {
     isRecording,
@@ -59,7 +52,6 @@ function App() {
             isTranslating={isTranslating}
             isSilent={isSilent}
             language={language}
-            connectionStatus={connectionStatus}
             audioLevel={audioLevel}
             duration={duration}
             onStartRecording={startRecording}

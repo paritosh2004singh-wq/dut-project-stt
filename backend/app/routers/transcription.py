@@ -41,7 +41,8 @@ async def transcribe_ws(websocket: WebSocket) -> None:
             resume_msg = ResumeMessage(**raw_msg)
             config = ConfigMessage(
                 session_id=resume_msg.session_id,
-                target_language=resume_msg.target_language
+                target_language=resume_msg.target_language,
+                translate_to_english=resume_msg.translate_to_english,
             )
             logger.info("Resuming session: %s", config.session_id)
         else:
@@ -67,6 +68,7 @@ async def transcribe_ws(websocket: WebSocket) -> None:
             sample_rate=config.sample_rate,
             chunk_duration_ms=config.chunk_duration_ms,
             target_language=config.target_language,
+            translate_to_english=config.translate_to_english,
             vad_threshold=config.vad_threshold if config.vad_threshold is not None else settings.vad_threshold,
             vad_min_speech_ms=config.vad_min_speech_ms if config.vad_min_speech_ms is not None else settings.vad_min_speech_ms,
             vad_min_silence_ms=config.vad_min_silence_ms if config.vad_min_silence_ms is not None else settings.vad_min_silence_ms,

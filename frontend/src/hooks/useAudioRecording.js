@@ -18,6 +18,8 @@ const getWebSocketUrl = () => {
 };
 
 export const useAudioRecording = (language) => {
+  const selectedLanguage = language?.value?.trim() || "English";
+  const translateToEnglish = !language;
   const [isRecording, setIsRecording] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -159,7 +161,8 @@ export const useAudioRecording = (language) => {
         fast_delay_ms: 240,
         slow_delay_ms: 2400,
         chunk_duration_ms: 10,
-        target_language: language.value,
+        target_language: selectedLanguage,
+        translate_to_english: translateToEnglish,
       };
 
       socket.send(JSON.stringify(config));
@@ -255,7 +258,7 @@ export const useAudioRecording = (language) => {
     };
 
     return socket;
-  }, [language, stopHeartbeat]);
+  }, [selectedLanguage, stopHeartbeat, translateToEnglish]);
 
   const setupAudioProcessing = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({

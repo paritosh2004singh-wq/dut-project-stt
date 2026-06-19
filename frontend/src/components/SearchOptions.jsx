@@ -11,7 +11,7 @@ const languageOptions = [
 ];
 
 const selectStyles = {
-  control: (base, state) => ({
+  control: (base) => ({
     ...base,
     background: '#f5f5f7',
     border: 'none',
@@ -81,6 +81,7 @@ export const SearchOptions = memo(({
             options={languageOptions}
             value={language}
             onChange={onLanguageChange}
+            isClearable
             isDisabled={isRecording}
             placeholder="Language"
             styles={selectStyles}

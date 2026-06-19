@@ -1,5 +1,5 @@
 import { memo, useRef, useEffect } from "react";
-import { FaMicrophone, FaSearch, FaTimes, FaLanguage } from "react-icons/fa";
+import { FaMicrophone, FaSearch, FaTimes } from "react-icons/fa";
 import { RecordingControls } from "./RecordingControls";
 import { AudioLevelIndicator } from "./AudioLevelIndicator";
 import { formatDuration } from "../utils/formatting";
@@ -14,7 +14,6 @@ export const SearchInput = memo(({
   isTranslating,
   isSilent,
   language,
-  connectionStatus,
   audioLevel,
   duration,
   onStartRecording,
@@ -22,6 +21,8 @@ export const SearchInput = memo(({
   onClear
 }) => {
   const hasTranscription = confirmedText || partialText || translatedText;
+  const selectedLanguage = language?.value?.trim() || "English";
+  const translateToEnglish = !language || language?.value?.trim() !== "English";
   const scrollContainerRef = useRef(null);
 
   // Combine active English segment and partial text for transient feedback
@@ -65,34 +66,30 @@ export const SearchInput = memo(({
           >
             {!isRecording && !hasTranscription ? (
               <div className="text-slate-350 text-2xl font-light tracking-tight mt-1 select-none">
-                {language.value === "English"  
-                  ? "Click the microphone to start speaking..." 
-                  : `Click the microphone to speak and translate to ${language.value}...`}
+                {translateToEnglish
+                  ? `Click the microphone to speak and translate to ${selectedLanguage}...`
+                  : "Click the microphone to start speaking..."}
+              </div>
+            ) : translateToEnglish ? (
+              <div className="text-2xl leading-relaxed tracking-tight">
+                {translatedText && (
+                  <span className="text-[#1d1d1f] font-medium">{translatedText}</span>
+                )}
+                {isRecording && parenthesizedText && (
+                  <span className="text-slate-400 font-light ml-2">
+                    ({parenthesizedText})
+                  </span>
+                )}
+                {!translatedText && !parenthesizedText && (
+                  <span className="text-slate-400 font-light">
+                    {isTranslating ? "Translating..." : "Listening..."}
+                  </span>
+                )}
               </div>
             ) : (
               <div className="text-2xl leading-relaxed tracking-tight">
-                {language.value === "English" ? (
-                  <>
-                    <span className="text-[#1d1d1f] font-medium">{confirmedText}</span>
-                    <span className="text-slate-400 font-light ml-2">{partialText}</span>
-                  </>
-                ) : (
-                  <>
-                    {translatedText && (
-                      <span className="text-[#1d1d1f] font-medium">{translatedText}</span>
-                    )}
-                    {isRecording && parenthesizedText && (
-                      <span className="text-slate-400 font-light ml-2">
-                        ({parenthesizedText})
-                      </span>
-                    )}
-                    {!translatedText && !parenthesizedText && (
-                      <span className="text-slate-400 font-light">
-                        {isTranslating ? "Translating..." : "Listening..."}
-                      </span>
-                    )}
-                  </>
-                )}
+                <span className="text-[#1d1d1f] font-medium">{confirmedText}</span>
+                <span className="text-slate-400 font-light ml-2">{partialText}</span>
               </div>
             )}
           </div>

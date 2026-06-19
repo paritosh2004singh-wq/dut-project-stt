@@ -23,6 +23,7 @@ class TranscriptionSession:
         sample_rate: int = 16000,
         chunk_duration_ms: int = 10,
         target_language: str = "English",
+        translate_to_english: bool = False,
         vad_threshold: float = settings.vad_threshold,
         vad_min_speech_ms: int = settings.vad_min_speech_ms,
         vad_min_silence_ms: int = settings.vad_min_silence_ms,
@@ -33,6 +34,7 @@ class TranscriptionSession:
         self._ws = websocket
         self._session_id = session_id or str(uuid.uuid4())
         self._target_language = target_language
+        self._translate_to_english = translate_to_english
         self._vad_gate = build_voice_activity_gate(
             VADConfig(
                 sample_rate=sample_rate,

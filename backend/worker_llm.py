@@ -23,7 +23,7 @@ async def process_translate_stream():
                 for msg_id, payload in msgs:
                     session_id = payload.get("session_id")
                     text = payload.get("text")
-                    target_language = payload.get("target_language")
+                    target_language = (payload.get("target_language") or "English").strip() or "English"
 
                     try:
                         await publish_session_event(session_id, {"type": "translation_started"})

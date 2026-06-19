@@ -18,9 +18,10 @@ logger = logging.getLogger(__name__)
 active_sessions = {}
 
 class STTSessionOrchestrator:
-    def __init__(self, session_id: str, target_language: str):
+    def __init__(self, session_id: str, target_language: str, translate_to_english: bool = False):
         self.session_id = session_id
         self.target_language = target_language
+        self.translate_to_english = translate_to_english
         self.state = TranscriptState()
         self.fast_queue = asyncio.Queue()
         self.slow_queue = asyncio.Queue()
@@ -124,7 +125,7 @@ class STTSessionOrchestrator:
         self.start_text_len = len(confirmed)
         
         try:
-            if self.target_language != "English":
+            if self.translate_to_english or self.target_language != "English":
                 await publish_translate_job(self.session_id, confirmed, self.target_language)
         except Exception as e:
             logger.error(f"Error on speech_ended: {e}")
@@ -146,6 +147,7 @@ async def process_audio_stream():
                 for msg_id, payload in msgs:
                     session_id = payload.get("session_id")
                     target_language = payload.get("target_language", "English")
+                    translate_to_english = payload.get("translate_to_english", False)
                     
                     if session_id in active_sessions:
                         existing_orch = active_sessions[session_id]
@@ -162,7 +164,7 @@ async def process_audio_stream():
                     # Only create orchestrator when we have actual audio chunk
                     if "chunk" in payload:
                         if session_id not in active_sessions:
-                            orch = STTSessionOrchestrator(session_id, target_language)
+                            orch = STTSessionOrchestrator(session_id, target_language, translate_to_english)
                             await orch.start()
                             active_sessions[session_id] = orch
                         
