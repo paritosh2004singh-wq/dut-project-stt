@@ -1,8 +1,7 @@
 FROM python:3.13-slim-trixie
 
 # The installer requires curl (and certificates), and webrtcvad needs gcc/python3-dev
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
-
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates build-essential python3-dev
 # Download the latest installer
 ADD https://astral.sh/uv/install.sh /uv-installer.sh
 
