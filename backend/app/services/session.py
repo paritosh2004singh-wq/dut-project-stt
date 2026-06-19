@@ -63,7 +63,8 @@ class TranscriptionSession:
                 session_id=self._session_id,
                 chunk=forwarded_chunk,
                 sequence=self._sequence,
-                target_language=self._target_language
+                target_language=self._target_language,
+                translate_to_english=self._translate_to_english
             )
 
         if gate_result.speech_ended:
@@ -90,7 +91,8 @@ class TranscriptionSession:
                 session_id=self._session_id,
                 chunk=forwarded_chunk,
                 sequence=self._sequence,
-                target_language=self._target_language
+                target_language=self._target_language,
+                translate_to_english=self._translate_to_english
             )
 
         await redis_client.xadd("audio_stream", {

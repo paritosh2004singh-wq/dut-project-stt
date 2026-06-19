@@ -17,6 +17,14 @@ logger = logging.getLogger(__name__)
 
 active_sessions = {}
 
+
+def _parse_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
+
 class STTSessionOrchestrator:
     def __init__(self, session_id: str, target_language: str, translate_to_english: bool = False):
         self.session_id = session_id
@@ -147,7 +155,7 @@ async def process_audio_stream():
                 for msg_id, payload in msgs:
                     session_id = payload.get("session_id")
                     target_language = payload.get("target_language", "English")
-                    translate_to_english = payload.get("translate_to_english", False)
+                    translate_to_english = _parse_bool(payload.get("translate_to_english", False))
                     
                     if session_id in active_sessions:
                         existing_orch = active_sessions[session_id]

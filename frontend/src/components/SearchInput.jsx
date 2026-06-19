@@ -22,6 +22,7 @@ export const SearchInput = memo(({
 }) => {
   const hasTranscription = confirmedText || partialText || translatedText;
   const selectedLanguage = language?.value?.trim() || "English";
+  const showSourceTranscript = selectedLanguage !== "English";
   const scrollContainerRef = useRef(null);
 
   // Combine active English segment and partial text for transient feedback
@@ -72,7 +73,7 @@ export const SearchInput = memo(({
                 {translatedText && (
                   <span className="text-[#1d1d1f] font-medium">{translatedText}</span>
                 )}
-                {isRecording && parenthesizedText && (
+                {showSourceTranscript && isRecording && parenthesizedText && (
                   <span className="text-slate-400 font-light ml-2">
                     ({parenthesizedText})
                   </span>

@@ -22,13 +22,20 @@ async def init_redis_groups():
             if "BUSYGROUP" not in str(e):
                 print(f"Error creating {stream} group: {e}")
 
-async def publish_audio_chunk(session_id: str, chunk: bytes, sequence: int, target_language: str):
+async def publish_audio_chunk(
+    session_id: str,
+    chunk: bytes,
+    sequence: int,
+    target_language: str,
+    translate_to_english: bool = False,
+):
     encoded_chunk = base64.b64encode(chunk).decode("utf-8")
     await redis_client.xadd("audio_stream", {
         "session_id": session_id,
         "chunk": encoded_chunk,
         "sequence": str(sequence),
-        "target_language": target_language
+        "target_language": target_language,
+        "translate_to_english": str(translate_to_english).lower(),
     }, maxlen=10000, approximate=True)
 
 async def publish_translate_job(session_id: str, text: str, target_language: str):
