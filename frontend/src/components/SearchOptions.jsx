@@ -2,13 +2,7 @@ import { memo } from "react";
 import Select from "react-select";
 import { StatusIndicator } from "./StatusIndicator";
 import { getStatusColor } from "../utils/formatting";
-
-const languageOptions = [
-  { value: "English", label: "English" },
-  { value: "Hindi", label: "Hindi" },
-  { value: "Kannada", label: "Kannada" },
-  { value: "Marathi", label: "Marathi" },
-];
+import { languageOptions } from "../constants/languages";
 
 const selectStyles = {
   control: (base) => ({
