@@ -1,63 +1,7 @@
 import { memo } from "react";
-import Select from "react-select";
 import { StatusIndicator } from "./StatusIndicator";
 import { getStatusColor } from "../utils/formatting";
-import { languageOptions } from "../constants/languages";
-
-const selectStyles = {
-  control: (base) => ({
-    ...base,
-    background: '#f5f5f7',
-    border: 'none',
-    borderRadius: '1rem',
-    minHeight: '40px',
-    boxShadow: 'none',
-    cursor: 'pointer',
-    fontSize: '0.875rem',
-    padding: '0 8px',
-    transition: 'all 0.2s',
-    '&:hover': {
-      background: '#e8e8ed'
-    },
-  }),
-  singleValue: (base) => ({ 
-    ...base, 
-    color: '#1d1d1f',
-    fontWeight: '600'
-  }),
-  menu: (base) => ({
-    ...base,
-    background: 'rgba(255,255,255,0.9)',
-    backdropFilter: 'blur(16px)',
-    border: '1px solid #e5e7eb',
-    borderRadius: '1rem',
-    overflow: 'hidden',
-    boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
-    marginBottom: '8px'
-  }),
-  menuList: (base) => ({
-    ...base,
-    maxHeight: '200px',
-    overflowY: 'auto',
-    padding: '4px 0',
-  }),
-  option: (base, state) => ({
-    ...base,
-    background: state.isFocused ? '#f5f5f7' : 'transparent',
-    color: '#1d1d1f',
-    cursor: 'pointer',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    padding: '10px 16px',
-    transition: 'background 0.2s',
-  }),
-  dropdownIndicator: (base) => ({ 
-    ...base, 
-    color: '#86868b',
-    padding: '4px'
-  }),
-  indicatorSeparator: () => ({ display: 'none' }),
-};
+import { LanguageAutocomplete } from "./LanguageAutocomplete";
 
 export const SearchOptions = memo(({
   language,
@@ -70,17 +14,12 @@ export const SearchOptions = memo(({
   return (
     <div className="flex items-center gap-6 bg-white rounded-full px-6 py-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-100">
       <div className="flex items-center gap-4">
-        <div className="relative z-50 min-w-[140px]">
-          <Select
-            options={languageOptions}
+        <div className="relative min-w-[140px]">
+          <LanguageAutocomplete
             value={language}
             onChange={onLanguageChange}
-            isClearable
             isDisabled={isRecording}
             placeholder="Language"
-            styles={selectStyles}
-            isSearchable={false}
-            menuPlacement="top"
           />
         </div>
 

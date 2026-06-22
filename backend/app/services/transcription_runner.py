@@ -11,7 +11,7 @@ from mistralai.client.models import (
     TranscriptionStreamTextDelta,
 )
  
-from app.models.messages import StatusKind, StreamKind
+from app.models.messages import StreamKind
 from app.services.transcript_state import TranscriptState
  
 logger = logging.getLogger(__name__)
@@ -51,10 +51,6 @@ async def run_stream(
             target_streaming_delay_ms=delay_ms,
         ):
             if isinstance(event, RealtimeTranscriptionSessionCreated):
-                if is_fast:
-                    state.set_fast_status(StatusKind.LISTENING)
-                else:
-                    state.set_slow_status(StatusKind.LISTENING)
                 _signal()
  
             elif isinstance(event, TranscriptionStreamTextDelta):
@@ -66,9 +62,9 @@ async def run_stream(
  
             elif isinstance(event, TranscriptionStreamDone):
                 if is_fast:
-                    state.set_fast_status(StatusKind.DONE)
+                    state.mark_fast_done()
                 else:
-                    state.set_slow_status(StatusKind.DONE)
+                    state.mark_slow_done()
                 _signal()
                 break
  
@@ -84,10 +80,6 @@ async def run_stream(
  
     except asyncio.CancelledError:
         # Graceful shutdown — mark as stopped rather than error
-        if is_fast:
-            state.set_fast_status(StatusKind.STOPPED)
-        else:
-            state.set_slow_status(StatusKind.STOPPED)
         _signal()
         raise
  

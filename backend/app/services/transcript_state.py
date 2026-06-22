@@ -1,17 +1,12 @@
 import difflib
 from dataclasses import dataclass
 from typing import Optional
- 
-from app.models.messages import StatusKind
- 
+
  
 @dataclass
 class TranscriptState:
     fast_full_text: str = ""
     slow_full_text: str = ""
- 
-    fast_status: StatusKind = StatusKind.CONNECTING
-    slow_status: StatusKind = StatusKind.CONNECTING
  
     fast_done: bool = False
     slow_done: bool = False
@@ -26,20 +21,14 @@ class TranscriptState:
     def append_slow(self, delta: str) -> None:
         self.slow_full_text += delta
  
-    def set_fast_status(self, status: StatusKind) -> None:
-        self.fast_status = status
-        if status == StatusKind.DONE:
-            self.fast_done = True
+    def mark_fast_done(self) -> None:
+        self.fast_done = True
  
-    def set_slow_status(self, status: StatusKind) -> None:
-        self.slow_status = status
-        if status == StatusKind.DONE:
-            self.slow_done = True
+    def mark_slow_done(self) -> None:
+        self.slow_done = True
  
     def set_error(self, message: str) -> None:
         self.error = message
-        self.fast_status = StatusKind.ERROR
-        self.slow_status = StatusKind.ERROR
  
     @property
     def is_finished(self) -> bool:

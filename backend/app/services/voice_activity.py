@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib
 import logging
 import math
 import sys
@@ -136,7 +135,7 @@ class VoiceActivityGate:
         if self._pending and force:
             padded = bytes(self._pending).ljust(self._window_bytes, b"\x00")
             self._pending.clear()
-            self._process_window(padded, result, final_window=True)
+            self._process_window(padded, result)
         else:
             self._pending.clear()
 
@@ -152,7 +151,7 @@ class VoiceActivityGate:
         self._pre_roll.clear()
         return result
 
-    def _process_window(self, window: bytes, result: VADFrameResult, *, final_window: bool = False) -> None:
+    def _process_window(self, window: bytes, result: VADFrameResult) -> None:
         samples = _decode_pcm16_window(window)
         probability = self._backend.predict(window, samples)
 

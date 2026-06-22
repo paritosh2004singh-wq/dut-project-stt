@@ -31,10 +31,12 @@ export const useAudioRecording = (language) => {
   const [slowStatus, setSlowStatus] = useState("connecting");
   const [translatedText, setTranslatedText] = useState("");
   const [isTranslating, setIsTranslating] = useState(false);
+  const [translationDurationMs, setTranslationDurationMs] = useState(0);
   const [activeEnglishText, setActiveEnglishText] = useState("");
   const [isSilent, setIsSilent] = useState(false);
 
   const socketRef = useRef(null);
+  const translationStartTimeRef = useRef(null);
   const audioContextRef = useRef(null);
   const processorRef = useRef(null);
   const streamRef = useRef(null);
@@ -221,6 +223,12 @@ export const useAudioRecording = (language) => {
             setPartialText(message.partial_text || "");
             setActiveEnglishText(message.active_english_text || "");
           }
+          if (message.is_translating && !translationStartTimeRef.current) {
+            translationStartTimeRef.current = Date.now();
+            setTranslationDurationMs(0);
+          } else if (!message.is_translating && translationStartTimeRef.current) {
+            setTranslationDurationMs(Date.now() - translationStartTimeRef.current);
+          }
           setIsTranslating(message.is_translating || false);
 
           if (message.translated_text !== undefined) {
@@ -228,11 +236,16 @@ export const useAudioRecording = (language) => {
           }
         } else if (message.type === "translation_started") {
           setIsTranslating(true);
+          translationStartTimeRef.current = Date.now();
+          setTranslationDurationMs(0);
         } else if (message.type === "translation_complete") {
           if (message.translated_text !== undefined) {
             setTranslatedText(message.translated_text || "");
           }
           setIsTranslating(false);
+          if (translationStartTimeRef.current) {
+            setTranslationDurationMs(Date.now() - translationStartTimeRef.current);
+          }
         } else if (message.type === "status") {
           if (message.stream === "fast") {
             setFastStatus(message.status);
@@ -319,6 +332,8 @@ export const useAudioRecording = (language) => {
       setTranslatedText("");
       setActiveEnglishText("");
       setIsTranslating(false);
+      setTranslationDurationMs(0);
+      translationStartTimeRef.current = null;
       intentionalStopRef.current = false;
       reconnectAttemptRef.current = 0;
       highestSequenceRef.current = -1;
@@ -377,6 +392,20 @@ export const useAudioRecording = (language) => {
     return () => clearInterval(interval);
   }, [isRecording]);
 
+  useEffect(() => {
+    if (!isTranslating) {
+      return undefined;
+    }
+
+    const interval = setInterval(() => {
+      if (translationStartTimeRef.current) {
+        setTranslationDurationMs(Date.now() - translationStartTimeRef.current);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [isTranslating]);
+
   useEffect(() => cleanup, [cleanup]);
 
   return {
@@ -390,6 +419,7 @@ export const useAudioRecording = (language) => {
     slowStatus,
     translatedText,
     isTranslating,
+    translationDurationMs,
     activeEnglishText,
     isSilent,
     autoSearchCandidate: (translatedText || confirmedText).trim(),

@@ -6,7 +6,6 @@ import uuid
 from fastapi import WebSocket
 
 from app.core.redis import publish_audio_chunk, redis_client
-from app.models.messages import SessionRestoredMessage
 from app.services.voice_activity import VADConfig, build_voice_activity_gate
 from app.core.config import settings
 
@@ -28,8 +27,7 @@ class TranscriptionSession:
         vad_min_speech_ms: int = settings.vad_min_speech_ms,
         vad_min_silence_ms: int = settings.vad_min_silence_ms,
         vad_speech_pad_ms: int = settings.vad_speech_pad_ms,
-        vad_aggressiveness: int = settings.vad_aggressiveness,
-        **kwargs
+        vad_aggressiveness: int = settings.vad_aggressiveness
     ) -> None:
         self._ws = websocket
         self._session_id = session_id or str(uuid.uuid4())

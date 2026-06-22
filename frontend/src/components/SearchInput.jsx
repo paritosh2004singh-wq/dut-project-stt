@@ -1,5 +1,5 @@
-import { memo, useRef, useEffect } from "react";
-import { FaMicrophone, FaSearch, FaTimes } from "react-icons/fa";
+import { memo, useRef, useEffect, useState } from "react";
+import { FaMicrophone, FaSearch, FaTimes, FaCopy, FaCheck } from "react-icons/fa";
 import { RecordingControls } from "./RecordingControls";
 import { AudioLevelIndicator } from "./AudioLevelIndicator";
 import { formatDuration } from "../utils/formatting";
@@ -12,6 +12,7 @@ export const SearchInput = memo(({
   activeEnglishText,
   translatedText,
   isTranslating,
+  translationDurationMs,
   isSilent,
   language,
   audioLevel,
@@ -27,6 +28,16 @@ export const SearchInput = memo(({
   const showTranscriptionArea = hasTranscription || (selectedLanguage === "English" && isTranslating);
   const showSourceTranscript = selectedLanguage !== "English";
   const scrollContainerRef = useRef(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    const textToCopy = translatedText || confirmedText || partialText || activeEnglishText;
+    if (textToCopy) {
+      navigator.clipboard.writeText(textToCopy);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   // Combine active English segment and partial text for transient feedback
   const parenthesizedText = [activeEnglishText?.trim(), partialText?.trim()].filter(Boolean).join(" ");
@@ -91,12 +102,22 @@ export const SearchInput = memo(({
           </div>
 
           {hasTranscription && !isRecording && (
-            <button 
-              onClick={onClear}
-              className="mt-2 p-2 bg-[#f5f5f7] hover:bg-[#e8e8ed] text-slate-500 rounded-full transition-colors"
-            >
-              <FaTimes />
-            </button>
+            <div className="flex items-center gap-2 mt-2 self-start">
+              <button 
+                onClick={handleCopy}
+                className="p-2 bg-[#f5f5f7] hover:bg-[#e8e8ed] text-slate-500 rounded-full transition-colors"
+                title="Copy to clipboard"
+              >
+                {copied ? <FaCheck className="text-green-500" /> : <FaCopy />}
+              </button>
+              <button 
+                onClick={onClear}
+                className="p-2 bg-[#f5f5f7] hover:bg-[#e8e8ed] text-slate-500 rounded-full transition-colors"
+                title="Clear"
+              >
+                <FaTimes />
+              </button>
+            </div>
           )}
         </div>
 
@@ -104,27 +125,43 @@ export const SearchInput = memo(({
         <div className="flex items-center justify-between mt-auto pt-6 border-t border-slate-100">
           <div className="flex items-center gap-3">
             {isRecording && (
-              <>
-                <div className="flex items-center gap-2 px-3 py-1 bg-red-50 text-red-500 rounded-full">
-                  <FaCircle className="text-[8px] animate-pulse" />
-                  <span className="text-sm font-semibold tracking-wider font-mono">
-                    {formatDuration(duration)}
+              <div className="flex items-center gap-2 px-3 py-1 bg-red-50 text-red-500 rounded-full">
+                <FaCircle className="text-[8px] animate-pulse" />
+                <span className="text-sm font-semibold tracking-wider font-mono">
+                  {formatDuration(duration)}
+                </span>
+              </div>
+            )}
+
+            {/* Translation Duration Pill */}
+            {(isTranslating || (translationDurationMs > 0 && translatedText)) && (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 rounded-full">
+                {isTranslating ? (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                   </span>
-                </div>
-                {isSilent && (
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full animate-pulse">
-                    <span className="text-xs font-medium tracking-wide">Silence detected — stopping…</span>
-                  </div>
-                )}
-              </>
+                ) : null}
+                <span className="text-xs font-medium tracking-wide font-mono">
+                  {isTranslating ? "Translating:" : "Translation took"} {(translationDurationMs / 1000).toFixed(1)}s
+                </span>
+              </div>
+            )}
+
+            {isRecording && isSilent && (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full animate-pulse">
+                <span className="text-xs font-medium tracking-wide">Silence detected — stopping…</span>
+              </div>
             )}
           </div>
 
-          <RecordingControls 
-            isRecording={isRecording}
-            onStart={onStartRecording}
-            onStop={onStopRecording}
-          />
+          <div className="flex items-center gap-3">
+            <RecordingControls 
+              isRecording={isRecording}
+              onStart={onStartRecording}
+              onStop={onStopRecording}
+            />
+          </div>
         </div>
       </div>
 

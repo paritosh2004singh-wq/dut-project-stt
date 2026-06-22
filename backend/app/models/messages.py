@@ -45,40 +45,4 @@ class ResumeMessage(BaseModel):
     target_language: str = "English"
     translate_to_english: bool = False
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Server → Client
-# ──────────────────────────────────────────────────────────────────────────────
 
-class StatusMessage(BaseModel):
-    type: Literal["status"] = "status"
-    stream: StreamKind
-    status: StatusKind
-
-class TranscriptMessage(BaseModel):
-    """
-    Carries the full merged state of both streams.
-    """
-    type: Literal["transcript"] = "transcript"
-    sequence: int = 0
-    confirmed_text: str = ""
-    partial_text: str = ""
-    fast_text: str = ""
-    slow_text: str = ""
-    translated_text: str | None = None
-    is_translating: bool = False
-
-class SessionRestoredMessage(BaseModel):
-    type: Literal["session_restored"] = "session_restored"
-    history: str
-    translated_history: str | None = None
-
-class ErrorMessage(BaseModel):
-    type: Literal["error"] = "error"
-    message: str
-
-class TranslationStartedMessage(BaseModel):
-    type: Literal["translation_started"] = "translation_started"
-
-class TranslationCompleteMessage(BaseModel):
-    type: Literal["translation_complete"] = "translation_complete"
-    translated_text: str | None = None
