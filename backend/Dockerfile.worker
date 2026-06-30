@@ -3,11 +3,13 @@
 # ============================================================================
 FROM python:3.13-slim-trixie AS builder
 
-# Install minimal build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install minimal build dependencies in single layer with aggressive cleanup
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     curl \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    ca-certificates && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/cache/apt/archives/*
 
 # Download and install uv package manager
 ADD https://astral.sh/uv/install.sh /uv-installer.sh
@@ -24,8 +26,9 @@ ENV UV_LINK_MODE=copy
 
 # Copy and install worker-specific dependencies (minimal set)
 COPY requirements.worker.txt .
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system --no-cache -r requirements.worker.txt
+RUN uv pip install --system --no-cache -r requirements.worker.txt && \
+    find /usr/local -type f -name '*.pyc' -delete && \
+    find /usr/local -type d -name '__pycache__' -delete
 
 # Copy only required application files
 COPY app/__init__.py          app/__init__.py
@@ -47,10 +50,11 @@ COPY .env .env
 # ============================================================================
 FROM python:3.13-slim-trixie AS runner
 
-# Install only runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+# Install only runtime dependencies in single layer with cleanup
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/cache/apt/archives/*
 
 # Create non-root user for security
 RUN useradd -m -u 1000 worker

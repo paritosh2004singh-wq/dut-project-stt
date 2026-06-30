@@ -3,13 +3,15 @@
 # ============================================================================
 FROM python:3.13-slim-trixie AS builder
 
-# Install build dependencies (gcc/python3-dev needed for webrtcvad compilation)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install build dependencies in single layer with aggressive cleanup
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     build-essential \
-    python3-dev \
-    && rm -rf /var/lib/apt/lists/*
+    python3-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/cache/apt/archives/*
 
 # Download and install uv package manager
 ADD https://astral.sh/uv/install.sh /uv-installer.sh
@@ -26,8 +28,9 @@ ENV UV_LINK_MODE=copy
 
 # Copy and install dependencies
 COPY requirements.txt .
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system --no-cache -r requirements.txt
+RUN uv pip install --system --no-cache -r requirements.txt && \
+    find /usr/local -type f -name '*.pyc' -delete && \
+    find /usr/local -type d -name '__pycache__' -delete
 
 # Copy application source code
 COPY . /app
@@ -37,10 +40,11 @@ COPY . /app
 # ============================================================================
 FROM python:3.13-slim-trixie AS runner
 
-# Install only runtime dependencies (no build tools)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+# Install only runtime dependencies in single layer with cleanup
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/cache/apt/archives/*
 
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser
