@@ -4,14 +4,14 @@ This repository contains a highly scalable, real-time speech-to-text and transla
 
 It provides real-time transcription and immediate translation through a decoupled, microservices-based architecture.
 
-## 🌟 Features
+## Features
 
 - **Decoupled Microservices:** Audio ingestion, transcription, and translation are entirely separated into horizontally scalable Redis Stream workers.
 - **Dual-Delay Transcription:** Utilizes Mistral realtime streaming. A fast stream (~240ms) provides immediate partial feedback, while a slow stream (~2400ms) delivers high-accuracy confirmed text.
 - **Hallucination Suppression:** A WebRTC VAD gate filters out silence, preventing the STT models from hallucinating ambient noise or outputting endless "umm" and "ahh" fillers.
 - **Apple-like Unified Dashboard:** A sleek React UI utilizing Tailwind CSS v4 to manage live recordings and real-time translations.
 
-## 🏗 Directory Layout
+## Directory Layout
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed Mermaid diagrams of the system topology.
 
@@ -31,12 +31,23 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed Mermaid diagrams of the sy
 - `frontend/src/components/` - UI components for recording and transcripts.
 - `frontend/src/hooks/` - Web Audio API capture and WebSocket state managers.
 
-## 🚀 Quickstart Installation
+## Quickstart Installation
 
 ### Prerequisites
 - Docker & Docker Compose
 - Node.js / Bun (for the frontend)
 - Python 3.13 (for local backend)
+
+**Deployment on Low-Resource VMs (e2-micro, 1GB RAM, 10GB disk)?**
+
+👉 **See [E2_MICRO_DEPLOY.md](./E2_MICRO_DEPLOY.md)** for the single-threaded build method.
+
+**Quick command for e2-micro:**
+```bash
+docker system prune -f
+cd ~/project-stt
+BUILDKIT_MAX_PARALLEL_BUILDS=1 docker compose up --build -d
+```
 
 ### 1. Environment Setup
 
@@ -49,15 +60,25 @@ MISTRAL_API_KEY=your_mistral_api_key_value
 
 ### 2. Launching Redis and Background Workers
 
-Spin up Redis and the workers using Docker Compose:
-
+**For normal environments (2GB+ RAM, 20GB+ disk):**
 ```bash
 docker-compose up -d --build
+```
+
+**For low-resource VMs (e2-micro: 1GB RAM, 10GB disk):**
+```bash
+# Clean first
+docker system prune -f
+
+# Build with single-threaded mode (prevents parallel builds)
+BUILDKIT_MAX_PARALLEL_BUILDS=1 docker compose up --build -d
 ```
 
 This starts:
 - `redis` on port `6379`
 - `stt-worker` and `llm-worker` scaling in the background.
+
+
 
 ### 3. Launching the Backend API (Locally)
 
