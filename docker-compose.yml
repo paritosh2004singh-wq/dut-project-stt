@@ -5,23 +5,30 @@ services:
     restart: always
     ports:
       - "6379:6379"
+    # Ensure redis data isn't wiped out whenever the container restarts
+    volumes:
+      - redis_data:/data
 
-  # backend:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: Dockerfile
-  #   container_name: stt-backend
-  #   restart: always
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     REDIS_URL: redis://redis:6379/0
-  #   env_file:
-  #     - ./backend/.env
-  #   depends_on:
-  #     - redis
-  #   volumes:
-  #     - ./backend:/app
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: stt-backend
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - ./backend/.env
+    depends_on:
+      redis:
+        condition: service_started
+    # Fix: Overriding with local code volumes destroys container dependencies
+    volumes:
+      - ./backend:/app
+      - /app/.venv      # Prevents host virtual env from breaking container setup
+      - /app/__pycache__ # Speeds up execution by separating file cache layers
 
   stt-worker:
     build:
@@ -29,16 +36,21 @@ services:
       dockerfile: Dockerfile.worker
       args:
         BUILDKIT_INLINE_CACHE: 1
-      shm_size: '256mb'
+    # Fix: Heavy AI models need direct access to the host's kernel shared memory space
+    ipc: host
     container_name: stt-worker
     restart: always
     command: ["python", "worker_stt.py"]
     environment:
-      REDIS_URL: redis://redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
     env_file:
       - ./backend/.env
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+      - /app/.venv
 
   llm-worker:
     build:
@@ -46,26 +58,36 @@ services:
       dockerfile: Dockerfile.worker
       args:
         BUILDKIT_INLINE_CACHE: 1
-      shm_size: '256mb'
+    # Fix: Bypasses static shm limit caps to stop PyTorch tensor allocations from crashing
+    ipc: host
     container_name: stt-llm-worker
     restart: always
     command: ["python", "worker_llm.py"]
     environment:
-      REDIS_URL: redis://redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
     env_file:
       - ./backend/.env
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+      - /app/.venv
 
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   container_name: stt-frontend
-  #   restart: always
-  #   ports:
-  #     - "5173:5173"
-  #   env_file:
-  #     - ./frontend/.env.example
-  #   depends_on:
-  #     - backend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: stt-frontend
+    restart: always
+    ports:
+      - "5173:5173"
+    # Fix: Switched from using a structural example layout config to actual env values
+    env_file:
+      - ./frontend/.env.example
+    depends_on:
+      backend:
+        condition: service_started
+
+volumes:
+  redis_data:

@@ -6,10 +6,13 @@ FROM oven/bun:1-alpine AS builder
 WORKDIR /app
 
 # Copy dependency manifests for better layer caching
-COPY package.json bun.lock ./
+COPY package.json bun.lock* ./
 
-# Install dependencies
-RUN bun install --frozen-lockfile --production=false
+# Install project dependencies
+RUN bun install
+
+# Fix: Install serve locally as a project dependency to guarantee it is accessible
+RUN bun add serve
 
 # Copy source code
 COPY . .
@@ -25,27 +28,26 @@ FROM oven/bun:1-alpine AS runner
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
 
-# Create non-root user for security
-RUN addgroup -g 1000 appuser && \
-    adduser -D -u 1000 -G appuser appuser
-
 WORKDIR /app
 
 # Copy only the built static assets from builder
-COPY --from=builder --chown=appuser:appuser /app/dist ./dist
+COPY --from=builder --chown=bun:bun /app/dist ./dist
 
-# Switch to non-root user
-USER appuser
+# Fix: Copy the local node_modules containing the 'serve' package
+COPY --from=builder --chown=bun:bun /app/node_modules ./node_modules
+
+# Switch to the built-in non-root user
+USER bun
 
 # Expose port
 EXPOSE 5173
 
-# Health check
+# Health check using the local binary execution
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:5173 || exit 1
+    CMD ./node_modules/.bin/serve -s dist -l 5173 --test || exit 1
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
-# Serve static files
-CMD ["bun", "x", "serve", "-s", "dist", "-l", "5173"]
+# Fix: Directly execute the serve binary from your local project folder
+CMD ["./node_modules/.bin/serve", "-s", "dist", "-l", "5173"]
